@@ -91,25 +91,43 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：执行适中强度的点击
-            logger.info("现在执行适中强度点击...")
-            click_cmd = [
+            # 第二步：执行真实的按下和释放操作
+            logger.info("现在执行真实点击操作...")
+            
+            # 分步执行：按下
+            mousedown_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "mousedown", "1",  # 按下鼠标
-                "pause", "0.05",   # 保持0.05秒（很短但有感觉）
-                "mouseup", "1"     # 释放鼠标
+                "mousedown", "1"
             ]
             
-            result = subprocess.run(
-                click_cmd,
+            subprocess.run(
+                mousedown_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=5
             )
             
-            logger.info("适中强度点击完成")
+            logger.info("鼠标按下完成，保持0.1秒...")
+            time.sleep(0.1)  # 保持按下状态0.1秒
+            
+            # 分步执行：释放
+            mouseup_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "mouseup", "1"
+            ]
+            
+            subprocess.run(
+                mouseup_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info("鼠标释放完成 - 真实点击操作完成")
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
