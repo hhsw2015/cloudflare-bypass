@@ -4,7 +4,7 @@ import random
 import logging
 from cloudflare_bypass.cloudflare_detector import CloudFlareLogoDetector, CloudFlarePopupDetector
 from cloudflare_bypass.vnc_manager import vnc_manager
-from alternative_click_methods import alternative_click_manager
+from firefox_container_click import firefox_container_click
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -263,8 +263,11 @@ def safe_click(client, x: int, y: int, max_value: int = 0):
     try:
         logger.info(f"Attempting click at position ({x}, {y}) using alternative methods...")
         
-        # Try alternative click methods first
-        success = alternative_click_manager.click_at_position(x, y)
+        # Try Firefox container click methods first
+        success = firefox_container_click.click_at_position(x, y)
+        if not success:
+            # Try alternative methods
+            success = firefox_container_click.alternative_click_methods(x, y)
         if success:
             logger.info(f"Alternative click successful at exact position: ({x}, {y})")
             return True
