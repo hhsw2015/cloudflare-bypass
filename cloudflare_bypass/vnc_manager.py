@@ -61,12 +61,12 @@ class VNCManager:
             logger.error(f"vncdo点击操作异常: {e}")
             return False
     
-    def move_and_click(self, x: int, y: int, max_value: int = 5):
-        """分步执行移动和点击操作"""
+    def move_and_click(self, x: int, y: int, max_value: int = 3):
+        """分步执行移动和点击操作，只在X轴小幅调整"""
         try:
-            # 添加随机偏移
+            # 只在X轴添加小幅随机偏移，Y轴保持精确
             delta_x = random.randint(-max_value, max_value)
-            delta_y = random.randint(-max_value, max_value)
+            delta_y = 0  # Y轴不偏移，保持精确定位
             final_x = x + delta_x
             final_y = y + delta_y
             

@@ -166,42 +166,13 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Based on successful case: Logo(596,374)-(695,431), success at (526,402)
-                        # This is Logo_left - 70px, which is the optimal checkbox position
-                        optimal_checkbox_distance = 70  # Proven successful distance
-                        checkbox_distance = max(50, logo_width // 2)  # Fallback adaptive distance
+                        # Adjust based on feedback: move further left, only adjust X-axis
+                        checkbox_distances = [90, 110, 130, 80, 100, 120]  # Try multiple distances, further left
                         
-                        click_positions.extend([
-                            (x1 - optimal_checkbox_distance, logo_center_y),     # Proven successful position first
-                            (x1 - checkbox_distance, logo_center_y),             # Original adaptive distance
-                            (x1 - optimal_checkbox_distance - 15, logo_center_y), # Slightly further left
-                            (x1 - optimal_checkbox_distance + 15, logo_center_y), # Slightly closer
-                        ])
+                        for distance in checkbox_distances:
+                            click_positions.append((x1 - distance, logo_center_y))
                         
-                        # Strategy 2: Look for verification area below logo
-                        below_distance = max(30, logo_height // 2)
-                        click_positions.extend([
-                            (logo_center_x, y2 + below_distance),
-                            (logo_center_x - 50, y2 + below_distance),
-                            (logo_center_x + 50, y2 + below_distance),
-                        ])
-                        
-                        # Strategy 3: Try common screen positions for CAPTCHA
-                        # These are typical positions where "I'm not a robot" appears
-                        screen_positions = [
-                            (300, 400), (400, 400), (500, 400),  # Common center areas
-                            (200, 350), (300, 350), (400, 350),  # Slightly higher
-                            (200, 450), (300, 450), (400, 450),  # Lower areas
-                        ]
-                        
-                        # Only add screen positions that are not too close to detected logo
-                        for pos_x, pos_y in screen_positions:
-                            distance_from_logo = ((pos_x - logo_center_x) ** 2 + (pos_y - logo_center_y) ** 2) ** 0.5
-                            if distance_from_logo > 100:  # At least 100 pixels away from logo
-                                click_positions.append((pos_x, pos_y))
-                        
-                        # Limit to first 8 positions to avoid too many attempts
-                        click_positions = click_positions[:8]
+                        # Focus only on X-axis left positions, no other strategies needed
                         
                         logger.info(f"Logo detected at ({x1}, {y1}) to ({x2}, {y2}), trying {len(click_positions)} positions")
                         
