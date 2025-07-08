@@ -91,15 +91,37 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：执行点击
+            # 第二步：执行更强的点击
             logger.info("现在执行点击...")
             click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "1"
+                "mousedown", "1",  # 按下鼠标
+                "pause", "0.2",    # 保持0.2秒
+                "mouseup", "1"     # 释放鼠标
             ]
             
             result = subprocess.run(
                 click_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10
+            )
+            
+            logger.info("点击完成，等待0.5秒后尝试双击...")
+            time.sleep(0.5)
+            
+            # 尝试双击以确保响应
+            double_click_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "click", "1",
+                "pause", "0.1",
+                "click", "1"
+            ]
+            
+            subprocess.run(
+                double_click_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
