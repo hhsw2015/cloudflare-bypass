@@ -176,9 +176,9 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Move even further left based on feedback that previous clicks were too right
-                        # Try much larger distances to find the actual checkbox
-                        checkbox_distances = [200, 250, 300, 180, 220, 270]  # Much further left
+                        # Fine-tune based on feedback: 396 too right, 346 too left, so try 360-380 range
+                        # Focus on the sweet spot between 346 and 396
+                        checkbox_distances = [220, 240, 260, 200, 210, 230]  # Fine-tuned range
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))

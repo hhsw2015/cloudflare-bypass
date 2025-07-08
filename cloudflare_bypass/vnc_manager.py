@@ -61,10 +61,10 @@ class VNCManager:
             logger.error(f"vncdo点击操作异常: {e}")
             return False
     
-    def move_and_click(self, x: int, y: int, max_value: int = 3):
-        """分步执行移动和点击操作，只在X轴小幅调整"""
+    def move_and_click(self, x: int, y: int, max_value: int = 2):
+        """移动到精确位置并点击，鼠标保持在该位置"""
         try:
-            # 只在X轴添加小幅随机偏移，Y轴保持精确
+            # 减少随机偏移，只在X轴小幅调整
             delta_x = random.randint(-max_value, max_value)
             delta_y = 0  # Y轴不偏移，保持精确定位
             final_x = x + delta_x
@@ -72,27 +72,11 @@ class VNCManager:
             
             logger.info(f"使用vncdo执行移动和点击: ({final_x}, {final_y})")
             
-            # 先移动鼠标
-            move_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "move", str(final_x), str(final_y)
-            ]
-            
-            result = subprocess.run(
-                move_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10
-            )
-            
-            logger.info("鼠标移动成功")
-            time.sleep(1.0)  # 停留1秒让用户看到鼠标位置
-            
-            # 再执行点击
+            # 使用单个命令完成移动和点击，避免鼠标跳回
             click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x), str(final_y),
+                "pause", "1",  # 停留1秒
                 "click", "1"
             ]
             
@@ -102,12 +86,11 @@ class VNCManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=15
             )
             
-            logger.info(f"点击操作成功: ({final_x}, {final_y})")
-            # 不再移动鼠标，让它停留在点击位置
-            # time.sleep(1.0)  # 移除额外停留，让鼠标保持在当前位置
+            logger.info(f"鼠标移动并点击成功: ({final_x}, {final_y})")
+            logger.info("鼠标将保持在当前位置")
             return True
             
         except subprocess.CalledProcessError as e:
