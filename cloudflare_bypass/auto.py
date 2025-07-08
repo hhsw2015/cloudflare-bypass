@@ -244,60 +244,47 @@ def bypass(
                         except Exception as e:
                             logger.warning(f"Failed to save debug screenshot: {e}")
                         
-                        for i, (pos_x, pos_y) in enumerate(click_positions):
-                            # Re-detect logo position before each click to get fresh Y coordinate
-                            try:
-                                fresh_logo_detected = cf_logo_detector.is_detected()
-                                if fresh_logo_detected:
-                                    fresh_x1, fresh_y1, fresh_x2, fresh_y2 = cf_logo_detector.matched_bbox
-                                    fresh_logo_center_y = (fresh_y1 + fresh_y2) // 2
-                                    # Update Y coordinate with fresh detection
-                                    pos_y = fresh_logo_center_y
-                                    logger.info(f"Updated Y coordinate to fresh logo center: {fresh_logo_center_y}")
-                                else:
-                                    logger.warning("Could not re-detect logo for fresh Y coordinate, using previous Y")
-                            except Exception as e:
-                                logger.warning(f"Error re-detecting logo: {e}, using previous Y coordinate")
-                            
-                            logger.info(f"Trying strategic click position {i+1}/{len(click_positions)}: ({pos_x}, {pos_y})")
-                            logger.info(f"Mouse will move to ({pos_x}, {pos_y}) and pause - please watch the screen")
-                            success = safe_click(None, pos_x, pos_y)
-                            if success:
-                                logger.info(f"Click executed at position ({pos_x}, {pos_y}), waiting for page response...")
-                                time.sleep(4)  # Wait even longer for page response
-                                # Check if this click worked with multiple detection attempts
-                                logo_disappeared = False
-                                for check_attempt in range(3):  # Try 3 times to check
-                                    try:
-                                        time.sleep(1)  # Small delay between checks
-                                        if not cf_logo_detector.is_detected():
-                                            logo_disappeared = True
-                                            break
-                                    except:
-                                        continue
-                                
-                                if logo_disappeared:
-                                    logger.info(f"SUCCESS! Click position {i+1} worked: ({pos_x}, {pos_y})")
-                                    return True
-                                else:
-                                    logger.info(f"Click position {i+1} didn't work, logo still present after {pos_x}, {pos_y}")
-                                    
-                                    # If we've tried 3 positions without success, maybe wrong logo detected
-                                    if i >= 2:
-                                        logger.warning("Multiple clicks failed - might be detecting wrong element or different CAPTCHA type")
-                                        # Try a few random positions as last resort
-                                        random_positions = [(350, 400), (450, 350), (250, 450)]
-                                        for j, (rand_x, rand_y) in enumerate(random_positions):
-                                            logger.info(f"Trying random fallback position {j+1}: ({rand_x}, {rand_y})")
-                                            safe_click(None, rand_x, rand_y)
-                                            time.sleep(2)
-                                        break
-                            else:
-                                logger.warning(f"Click position {i+1} failed to execute: ({pos_x}, {pos_y})")
+                        # Use the first (best) position only - we know it's correct
+                        best_pos_x, best_pos_y = click_positions[0]
                         
+                        # Re-detect logo position to get fresh Y coordinate
+                        try:
+                            fresh_logo_detected = cf_logo_detector.is_detected()
+                            if fresh_logo_detected:
+                                fresh_x1, fresh_y1, fresh_x2, fresh_y2 = cf_logo_detector.matched_bbox
+                                fresh_logo_center_y = (fresh_y1 + fresh_y2) // 2
+                                best_pos_y = fresh_logo_center_y
+                                logger.info(f"Updated Y coordinate to fresh logo center: {fresh_logo_center_y}")
+                        except Exception as e:
+                            logger.warning(f"Error re-detecting logo: {e}, using calculated Y coordinate")
+                        
+                        logger.info(f"Using optimal position: ({best_pos_x}, {best_pos_y})")
+                        
+                        # Try clicking at the optimal position multiple times
+                        max_click_attempts = 5
+                        for attempt in range(max_click_attempts):
+                            logger.info(f"Click attempt {attempt + 1}/{max_click_attempts} at position ({best_pos_x}, {best_pos_y})")
+                            
+                            success = safe_click(None, best_pos_x, best_pos_y)
+                            if success:
+                                logger.info(f"Click executed, waiting 5 seconds to check result...")
+                                time.sleep(5)  # Wait 5 seconds as requested
+                                
+                                # Check if logo disappeared (verification passed)
+                                try:
+                                    if not cf_logo_detector.is_detected():
+                                        logger.info(f"SUCCESS! Verification passed after attempt {attempt + 1}")
+                                        return True
+                                    else:
+                                        logger.info(f"Attempt {attempt + 1} failed, logo still present. Continuing...")
+                                except Exception as e:
+                                    logger.warning(f"Error checking logo after attempt {attempt + 1}: {e}")
+                            else:
+                                logger.warning(f"Click attempt {attempt + 1} failed to execute")
+                        
+                        logger.warning(f"All {max_click_attempts} attempts failed at optimal position")
                         clicked = True
-                        logger.info("Tried all click positions, marking as clicked")
-                        break  # Exit threshold loop after trying alternative strategies
+                        break  # Exit threshold loop after trying multiple attempts
                     
                     # If we found logo, no need to try lower thresholds
                     if logo_detected:
