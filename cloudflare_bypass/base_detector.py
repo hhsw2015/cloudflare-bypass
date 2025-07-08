@@ -9,9 +9,9 @@ class BaseDetector:
         self.template = cv2.imread(template_path, 0)
         self.threshold = threshold
         self.matched_bbox = None
-        self.vnc_host = "31.22.111.162"  # 替换为实际 IP
-        self.vnc_port = 5800
-        self.vnc_password = ""  # 替换为实际密码
+        self.vnc_host = "127.0.0.1"  # 替换为实际 IP
+        self.vnc_port = 5900
+        self.vnc_password = None  # 替换为实际密码
         self.client = api.connect(f"{self.vnc_host}:{self.vnc_port}", password=self.vnc_password)
 
     def _capture_vnc_screenshot(self):
