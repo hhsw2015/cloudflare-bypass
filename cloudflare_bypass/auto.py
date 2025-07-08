@@ -176,19 +176,19 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Try even more left positions based on common CAPTCHA layouts
-                        # Many CAPTCHA checkboxes are 150-200px left of any text/logo
-                        checkbox_distances = [150, 180, 200, 120, 140, 160]  # Much further left
+                        # Move even further left based on feedback that previous clicks were too right
+                        # Try much larger distances to find the actual checkbox
+                        checkbox_distances = [200, 250, 300, 180, 220, 270]  # Much further left
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))
                         
-                        # Also try some common absolute positions where checkboxes typically appear
+                        # Try more left absolute positions based on feedback
                         common_checkbox_positions = [
-                            (300, logo_center_y),  # Common left area
-                            (250, logo_center_y),  # Further left
-                            (350, logo_center_y),  # Slightly right of common
                             (200, logo_center_y),  # Very left
+                            (150, logo_center_y),  # Even further left
+                            (250, logo_center_y),  # Left area
+                            (100, logo_center_y),  # Extremely left
                         ]
                         
                         # Add common positions that are not too close to detected logo

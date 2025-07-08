@@ -106,7 +106,8 @@ class VNCManager:
             )
             
             logger.info(f"点击操作成功: ({final_x}, {final_y})")
-            time.sleep(1.0)  # 点击后再停留1秒
+            # 不再移动鼠标，让它停留在点击位置
+            # time.sleep(1.0)  # 移除额外停留，让鼠标保持在当前位置
             return True
             
         except subprocess.CalledProcessError as e:
