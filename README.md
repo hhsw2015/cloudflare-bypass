@@ -30,8 +30,24 @@ docker exec firefox sh -c 'apk update && apk add xdotool'
 
 ### 2. 运行监控
 
+基本用法：
 ```bash
 python cloudflare_monitor.py
+```
+
+命令行参数：
+```bash
+# 验证通过后自动退出程序
+python cloudflare_monitor.py --exit
+
+# 自定义检测间隔（秒）
+python cloudflare_monitor.py --interval 5
+
+# 自定义点击后等待验证的时间（秒）
+python cloudflare_monitor.py --wait 10
+
+# 组合使用
+python cloudflare_monitor.py --exit --interval 2 --wait 8
 ```
 
 ### 3. 配置选项

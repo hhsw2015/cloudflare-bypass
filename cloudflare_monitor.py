@@ -116,9 +116,20 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
-    def run_forever(self, check_interval=3, verification_wait=5):
-        """持续监控模式"""
+    def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False):
+        """
+        持续监控模式
+        
+        Args:
+            check_interval: 检测间隔（秒）
+            verification_wait: 点击后等待验证的时间（秒）
+            exit_on_success: 验证通过后是否退出程序
+        """
         logger.info("🚀 启动Cloudflare监控 - 持续监控模式")
+        if exit_on_success:
+            logger.info("✓ 验证通过后将自动退出程序")
+        else:
+            logger.info("✓ 验证通过后将继续监控")
         
         while True:
             try:
@@ -140,6 +151,11 @@ class CloudflareMonitor:
                         still_detected, _ = self.detect_cloudflare()
                         if not still_detected:
                             logger.info("✅ 人机验证通过成功！")
+                            
+                            # 如果设置了验证通过后退出，则退出程序
+                            if exit_on_success:
+                                logger.info("👋 验证通过，程序退出")
+                                return True
                         else:
                             logger.info("❌ 验证未通过，继续尝试...")
                     else:
@@ -154,8 +170,24 @@ class CloudflareMonitor:
             except Exception as e:
                 logger.error(f"监控过程中发生错误: {e}")
                 time.sleep(check_interval)
+        
+        return False
 
 
 if __name__ == "__main__":
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="Cloudflare 人机验证自动绕过工具")
+    parser.add_argument("--exit", action="store_true", help="验证通过后自动退出程序")
+    parser.add_argument("--interval", type=int, default=3, help="检测间隔（秒），默认为3秒")
+    parser.add_argument("--wait", type=int, default=5, help="点击后等待验证的时间（秒），默认为5秒")
+    args = parser.parse_args()
+    
+    # 创建监控器并运行
     monitor = CloudflareMonitor()
-    monitor.run_forever()
+    monitor.run_forever(
+        check_interval=args.interval,
+        verification_wait=args.wait,
+        exit_on_success=args.exit
+    )
