@@ -176,9 +176,9 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Fine-tune based on feedback: 396 too right, 346 too left, so try 360-380 range
-                        # Focus on the sweet spot between 346 and 396
-                        checkbox_distances = [220, 240, 260, 200, 210, 230]  # Fine-tuned range
+                        # Start from right and gradually move left based on feedback
+                        # 376 still too left, so start closer to logo and move left gradually
+                        checkbox_distances = [180, 190, 200, 210, 220, 170]  # Start from right, move left
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))
@@ -231,6 +231,20 @@ def bypass(
                             logger.warning(f"Failed to save debug screenshot: {e}")
                         
                         for i, (pos_x, pos_y) in enumerate(click_positions):
+                            # Re-detect logo position before each click to get fresh Y coordinate
+                            try:
+                                fresh_logo_detected = cf_logo_detector.is_detected()
+                                if fresh_logo_detected:
+                                    fresh_x1, fresh_y1, fresh_x2, fresh_y2 = cf_logo_detector.matched_bbox
+                                    fresh_logo_center_y = (fresh_y1 + fresh_y2) // 2
+                                    # Update Y coordinate with fresh detection
+                                    pos_y = fresh_logo_center_y
+                                    logger.info(f"Updated Y coordinate to fresh logo center: {fresh_logo_center_y}")
+                                else:
+                                    logger.warning("Could not re-detect logo for fresh Y coordinate, using previous Y")
+                            except Exception as e:
+                                logger.warning(f"Error re-detecting logo: {e}, using previous Y coordinate")
+                            
                             logger.info(f"Trying strategic click position {i+1}/{len(click_positions)}: ({pos_x}, {pos_y})")
                             logger.info(f"Mouse will move to ({pos_x}, {pos_y}) and pause - please watch the screen")
                             success = safe_click(None, pos_x, pos_y)
