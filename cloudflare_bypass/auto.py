@@ -4,6 +4,7 @@ import random
 import logging
 from cloudflare_bypass.cloudflare_detector import CloudFlareLogoDetector, CloudFlarePopupDetector
 from cloudflare_bypass.vnc_manager import vnc_manager
+from alternative_click_methods import alternative_click_manager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -258,14 +259,23 @@ def bypass(
 
 
 def safe_click(client, x: int, y: int, max_value: int = 0):
-    """Safe click function using vncdo commands with no random offset"""
+    """Safe click function using alternative click methods"""
     try:
-        # Use VNC manager's vncdo-based click method with no random offset
-        success = vnc_manager.move_and_click(x, y, 0)  # Force 0 offset for precise positioning
+        logger.info(f"Attempting click at position ({x}, {y}) using alternative methods...")
+        
+        # Try alternative click methods first
+        success = alternative_click_manager.click_at_position(x, y)
         if success:
-            logger.info(f"Click operation successful at exact position: ({x}, {y})")
+            logger.info(f"Alternative click successful at exact position: ({x}, {y})")
+            return True
+        
+        # Fallback to VNC manager if alternative methods fail
+        logger.warning("Alternative methods failed, trying VNC fallback...")
+        success = vnc_manager.move_and_click(x, y, 0)
+        if success:
+            logger.info(f"VNC fallback click successful at exact position: ({x}, {y})")
         else:
-            logger.warning(f"Click operation failed at: ({x}, {y})")
+            logger.warning(f"All click methods failed at: ({x}, {y})")
         return success
         
     except Exception as e:
