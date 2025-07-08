@@ -5,6 +5,7 @@ from vncdotool import api
 import time
 import logging
 import os
+import subprocess
 from twisted.internet.error import ConnectionRefusedError
 
 # 配置日志
@@ -40,8 +41,7 @@ class BaseDetector:
         self._connect_vnc()
 
     def _connect_vnc(self):
-        """建立或重新建立 VNC 连接，带重试逻辑"""
-        # 避免频繁断开，仅在必要时断开
+        """建立或重新建立 VNC 连接，带重试逻辑，用于鼠标操作"""
         if self.client:
             try:
                 if self.client.transport and self.client.transport.connected:
@@ -85,54 +85,39 @@ class BaseDetector:
                     raise RuntimeError(f"无法连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}: {e}")
 
     def _capture_vnc_screenshot(self):
-        """捕获 VNC 屏幕截图，带重试逻辑和连接状态检查"""
+        """使用 vncdo 命令捕获 VNC 屏幕截图"""
         max_retries = 5
         retry_interval = 3
+        screenshot_path = "screenshot.png"
+        vncdo_cmd = ["vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}", "capture", screenshot_path]
+
         for attempt in range(max_retries):
             try:
-                if self.client is None:
-                    logger.warning("VNC 客户端未初始化，尝试重新连接")
-                    self._connect_vnc()
-                logger.info("正在捕获 VNC 截图")
-                self.client.captureScreen("screenshot.png")
-                img = cv2.imread("screenshot.png")
+                logger.info(f"正在执行 vncdo 命令捕获截图: {' '.join(vncdo_cmd)}")
+                result = subprocess.run(
+                    vncdo_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=30
+                )
+                logger.info(f"vncdo 命令执行成功: {result.stdout}")
+                img = cv2.imread(screenshot_path)
                 if img is None:
-                    raise ValueError("无法读取截图")
+                    raise ValueError(f"无法读取截图: {screenshot_path}")
                 logger.info("VNC 截图捕获成功")
                 return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            except AttributeError as e:
-                logger.error(f"截图尝试 {attempt + 1} 失败: {e} (可能是客户端对象无效)")
-                self.client = None
-                try:
-                    self._connect_vnc()
-                except RuntimeError as conn_err:
-                    logger.error(f"重新连接失败: {conn_err}")
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"截图尝试 {attempt + 1} 失败: vncdo 命令错误 - {e.stderr}")
                 if attempt < max_retries - 1:
                     logger.info(f"等待 {retry_interval} 秒后重试")
                     time.sleep(retry_interval)
                 else:
                     logger.error("捕获 VNC 截图失败，已达最大重试次数")
-                    raise RuntimeError(f"捕获 VNC 截图失败: {e}")
-            except (ConnectionRefusedError, ValueError) as e:
-                logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
-                self.client = None
-                try:
-                    self._connect_vnc()
-                except RuntimeError as conn_err:
-                    logger.error(f"重新连接失败: {conn_err}")
-                if attempt < max_retries - 1:
-                    logger.info(f"等待 {retry_interval} 秒后重试")
-                    time.sleep(retry_interval)
-                else:
-                    logger.error("捕获 VNC 截图失败，已达最大重试次数")
-                    raise RuntimeError(f"捕获 VNC 截图失败: {e}")
+                    raise RuntimeError(f"捕获 VNC 截图失败: {e.stderr}")
             except Exception as e:
                 logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
-                self.client = None
-                try:
-                    self._connect_vnc()
-                except RuntimeError as conn_err:
-                    logger.error(f"重新连接失败: {conn_err}")
                 if attempt < max_retries - 1:
                     logger.info(f"等待 {retry_interval} 秒后重试")
                     time.sleep(retry_interval)
