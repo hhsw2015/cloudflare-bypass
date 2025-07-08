@@ -70,30 +70,8 @@ class VNCManager:
             final_x = x + delta_x
             final_y = y + delta_y
             
-            # 第一步：先在页面空白处点击获得焦点
-            logger.info("第一步：在页面空白处点击获得窗口焦点...")
-            
-            # 在页面左上角空白处点击获得焦点
-            blank_area_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "move", "100", "100",
-                "click", "1"
-            ]
-            
-            subprocess.run(
-                blank_area_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10
-            )
-            
-            logger.info("窗口焦点已获得，等待1秒...")
-            time.sleep(1.0)
-            
-            # 第二步：移动到目标位置
-            logger.info(f"第二步：移动鼠标到目标位置: ({final_x}, {final_y})")
+            # 直接移动到目标位置
+            logger.info(f"移动鼠标到复选框位置: ({final_x}, {final_y})")
             
             move_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
@@ -109,80 +87,70 @@ class VNCManager:
                 timeout=10
             )
             
-            logger.info(f"鼠标已移动到: ({final_x}, {final_y}) - 请观察鼠标位置")
-            logger.info("停留1秒让您确认位置...")
-            time.sleep(1.0)
+            logger.info(f"鼠标已移动到复选框位置: ({final_x}, {final_y})")
+            logger.info("停留2秒让您确认位置...")
+            time.sleep(2.0)
             
-            # 第三步：尝试多种点击方式
-            logger.info("第三步：尝试多种点击方式...")
+            # 尝试强力点击触发验证
+            logger.info("开始尝试触发复选框验证...")
             
-            # 方式1：标准click命令
-            logger.info("方式1：使用标准click命令...")
-            click_cmd = [
+            # 尝试1：双击
+            logger.info("尝试1：双击...")
+            double_click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "click", "1",
+                "pause", "0.2",
                 "click", "1"
             ]
             
             subprocess.run(
-                click_cmd,
+                double_click_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=5
+                timeout=10
             )
             
-            time.sleep(0.5)
+            time.sleep(1.0)
             
-            # 方式2：mousedown + 短暂延迟 + mouseup
-            logger.info("方式2：使用mousedown/mouseup...")
-            press_cmd = [
+            # 尝试2：长按点击
+            logger.info("尝试2：长按点击...")
+            long_click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "mousedown", "1"
-            ]
-            
-            subprocess.run(
-                press_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            
-            time.sleep(0.1)  # 短暂按压
-            
-            release_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "mousedown", "1",
+                "pause", "0.5",
                 "mouseup", "1"
             ]
             
             subprocess.run(
-                release_cmd,
+                long_click_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=5
+                timeout=10
             )
             
-            time.sleep(0.5)
+            time.sleep(1.0)
             
-            # 方式3：使用type命令模拟空格键（有时复选框响应键盘）
-            logger.info("方式3：尝试空格键...")
-            space_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "key", "space"
-            ]
-            
-            subprocess.run(
-                space_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
+            # 尝试3：连续点击
+            logger.info("尝试3：连续点击...")
+            for i in range(3):
+                click_cmd = [
+                    "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                    "click", "1"
+                ]
+                
+                subprocess.run(
+                    click_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=5
+                )
+                time.sleep(0.3)
             
             logger.info(f"复选框点击完成，强制鼠标停留在目标位置...")
             
