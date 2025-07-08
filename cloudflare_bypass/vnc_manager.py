@@ -91,39 +91,17 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：尝试多种点击方式
-            logger.info("尝试多种点击方式...")
+            # 第二步：执行最简单的单击
+            logger.info("执行简单轻柔单击...")
             
-            # 方式1: 标准双击
-            logger.info("方式1: 尝试双击...")
-            double_click_cmd = [
+            # 只使用最基本的单击，避免触发界面变化
+            simple_click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "1",
-                "pause", "0.1",
                 "click", "1"
             ]
             
             subprocess.run(
-                double_click_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10
-            )
-            
-            time.sleep(1)
-            logger.info("双击完成")
-            
-            # 方式2: 右键点击
-            logger.info("方式2: 尝试右键点击...")
-            right_click_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "3"
-            ]
-            
-            subprocess.run(
-                right_click_cmd,
+                simple_click_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -131,63 +109,7 @@ class VNCManager:
                 timeout=5
             )
             
-            time.sleep(0.5)
-            
-            # 方式3: 键盘空格键（有时复选框响应空格）
-            logger.info("方式3: 尝试空格键...")
-            space_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "key", "space"
-            ]
-            
-            subprocess.run(
-                space_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            
-            time.sleep(0.5)
-            
-            # 方式4: Enter键
-            logger.info("方式4: 尝试Enter键...")
-            enter_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "key", "Return"
-            ]
-            
-            subprocess.run(
-                enter_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            
-            time.sleep(0.5)
-            
-            # 方式5: 长按左键
-            logger.info("方式5: 尝试长按左键...")
-            long_press_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "mousedown", "1",
-                "pause", "1.0",  # 长按1秒
-                "mouseup", "1"
-            ]
-            
-            subprocess.run(
-                long_press_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=15
-            )
-            
-            logger.info("所有点击方式尝试完成")
+            logger.info("简单单击完成")
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
