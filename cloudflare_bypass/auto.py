@@ -1,7 +1,6 @@
 from typing import Union
 import time
 import random
-import pyautogui
 from cloudflare_bypass.cloudflare_detector import CloudFlareLogoDetector, CloudFlarePopupDetector
 
 
