@@ -166,11 +166,16 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        checkbox_distance = max(50, logo_width // 2)  # Adaptive distance
+                        # Based on successful case: Logo(596,374)-(695,431), success at (526,402)
+                        # This is Logo_left - 70px, which is the optimal checkbox position
+                        optimal_checkbox_distance = 70  # Proven successful distance
+                        checkbox_distance = max(50, logo_width // 2)  # Fallback adaptive distance
+                        
                         click_positions.extend([
-                            (x1 - checkbox_distance, logo_center_y),
-                            (x1 - checkbox_distance - 20, logo_center_y),
-                            (x1 - checkbox_distance + 20, logo_center_y),
+                            (x1 - optimal_checkbox_distance, logo_center_y),     # Proven successful position first
+                            (x1 - checkbox_distance, logo_center_y),             # Original adaptive distance
+                            (x1 - optimal_checkbox_distance - 15, logo_center_y), # Slightly further left
+                            (x1 - optimal_checkbox_distance + 15, logo_center_y), # Slightly closer
                         ])
                         
                         # Strategy 2: Look for verification area below logo
