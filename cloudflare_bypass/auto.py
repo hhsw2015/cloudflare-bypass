@@ -176,9 +176,26 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Adjust based on visual feedback: first click (414,376) was at left edge of checkbox
-                        # Move right by about one checkbox width (20px) to hit center of checkbox
-                        checkbox_distances = [160, 165, 170, 175, 180, 155]  # Move closer to logo (further right)
+                        # Success! Position 436 worked, but can be fine-tuned to center better
+                        # Make positioning adaptive based on logo size instead of fixed pixels
+                        
+                        # Calculate adaptive distances based on logo dimensions
+                        logo_width = x2 - x1
+                        logo_height = y2 - y1
+                        
+                        # Adaptive checkbox positioning based on logo size
+                        # Typically checkbox is about 1.5-2x logo width to the left
+                        base_distance = int(logo_width * 1.6)  # Base distance adaptive to logo size
+                        
+                        # Fine-tune around the successful position (436 was good, try slightly left)
+                        fine_tune_offsets = [-5, 0, 5, -10, 10, -3]  # Small adjustments around base
+                        
+                        checkbox_distances = []
+                        for offset in fine_tune_offsets:
+                            adaptive_distance = base_distance + offset
+                            checkbox_distances.append(adaptive_distance)
+                        
+                        logger.info(f"Using adaptive positioning: logo_width={logo_width}, base_distance={base_distance}")
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))
