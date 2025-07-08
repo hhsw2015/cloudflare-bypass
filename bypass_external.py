@@ -1,9 +1,10 @@
 from cloudflare_bypass import bypass
 import time
 import os
+import sys
 
 def main():
-    target_url = os.getenv("TARGET_URL", "https://your-target-website.com")
+    target_url = os.getenv("TARGET_URL", sys.argv[1].strip())
     print(f"正在监控 VNC 画面: {target_url}")
 
     while True:
