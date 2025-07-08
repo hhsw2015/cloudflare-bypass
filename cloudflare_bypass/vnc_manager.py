@@ -91,66 +91,101 @@ class VNCManager:
             logger.info("停留2秒让您确认位置...")
             time.sleep(2.0)
             
-            # 尝试强力点击触发验证
+            # 尝试多种方式确保点击生效
             logger.info("开始尝试触发复选框验证...")
             
-            # 尝试1：双击
-            logger.info("尝试1：双击...")
-            double_click_cmd = [
+            # 方法1：确保鼠标在正确位置并点击
+            logger.info("方法1：精确定位并点击...")
+            
+            # 先确保鼠标在精确位置
+            precise_move_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "1",
-                "pause", "0.2",
+                "move", str(final_x), str(final_y)
+            ]
+            
+            subprocess.run(
+                precise_move_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            time.sleep(0.5)  # 短暂停顿
+            
+            # 执行点击
+            click_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "click", "1"
             ]
             
             subprocess.run(
-                double_click_cmd,
+                click_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=5
             )
             
-            time.sleep(1.0)
+            logger.info("点击完成")
             
-            # 尝试2：长按点击
-            logger.info("尝试2：长按点击...")
-            long_click_cmd = [
+            # 方法2：尝试Tab键获得焦点然后空格键
+            logger.info("方法2：尝试Tab+Space组合...")
+            
+            # 按Tab键获得焦点
+            tab_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "mousedown", "1",
-                "pause", "0.5",
-                "mouseup", "1"
+                "key", "Tab"
             ]
             
             subprocess.run(
-                long_click_cmd,
+                tab_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=5
             )
             
-            time.sleep(1.0)
+            time.sleep(0.3)
             
-            # 尝试3：连续点击
-            logger.info("尝试3：连续点击...")
-            for i in range(3):
-                click_cmd = [
-                    "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                    "click", "1"
-                ]
-                
-                subprocess.run(
-                    click_cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=5
-                )
-                time.sleep(0.3)
+            # 按空格键激活
+            space_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "key", "space"
+            ]
+            
+            subprocess.run(
+                space_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info("Tab+Space组合完成")
+            
+            # 方法3：尝试Enter键
+            logger.info("方法3：尝试Enter键...")
+            
+            enter_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "key", "Return"
+            ]
+            
+            subprocess.run(
+                enter_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info("所有方法尝试完成，等待检查结果...")
             
             logger.info(f"复选框点击完成，强制鼠标停留在目标位置...")
             
