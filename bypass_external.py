@@ -8,7 +8,7 @@ def main():
 
     while True:
         bypassed = bypass(
-            mode='dark',
+            mode='light',
             warmup_time=5,
             timeout=30,
             interval=0.5,
