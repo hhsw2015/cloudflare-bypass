@@ -1,4 +1,3 @@
-cloudflare_bypass
 vncdotool
 opencv-python-headless
 numpy
