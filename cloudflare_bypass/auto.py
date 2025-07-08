@@ -80,8 +80,7 @@ def bypass(
         logger.info(f"Warmup wait: {warmup_time} seconds")
         time.sleep(warmup_time)
 
-    # Initialize detectors once to avoid repeated VNC connections
-    cf_popup_detector = None
+    # Initialize logo detector only - no popup detection needed
     cf_logo_detector = None
     
     # Try multiple thresholds from high to low
@@ -102,24 +101,21 @@ def bypass(
                 try:
                     logger.info(f"Trying mode: {current_mode}, threshold: {current_threshold}")
                     
-                    # Only create new detectors if mode changed or first time
-                    if (cf_popup_detector is None or 
-                        cf_popup_detector.template_path != (f"cloudflare_bypass/images/cf_popup{'_dark' if current_mode == 'dark' else ''}.png")):
-                        cf_popup_detector = CloudFlarePopupDetector(mode=current_mode, threshold=current_threshold)
+                    # Only create new logo detector if mode changed or first time
+                    if (cf_logo_detector is None or 
+                        cf_logo_detector.template_path != (f"cloudflare_bypass/images/cf_logo{'_dark' if current_mode == 'dark' else ''}.png")):
                         cf_logo_detector = CloudFlareLogoDetector(mode=current_mode, threshold=current_threshold)
                     else:
-                        # Just update threshold for existing detectors
-                        cf_popup_detector.threshold = current_threshold
+                        # Just update threshold for existing detector
                         cf_logo_detector.threshold = current_threshold
                     
-                    # Detect popup and logo
-                    popup_detected = cf_popup_detector.is_detected()
+                    # Only detect logo - no need for popup detection
                     logo_detected = cf_logo_detector.is_detected()
                     
-                    logger.info(f"Popup detected: {popup_detected}, Logo detected: {logo_detected}")
+                    logger.info(f"Logo detected: {logo_detected}")
                     
-                    # If logo detected, log more details about the detection
-                    if logo_detected:
+                    # If logo detected, process it
+                    if logo_detected and not clicked:
                         x1, y1, x2, y2 = cf_logo_detector.matched_bbox
                         logo_width = x2 - x1
                         logo_height = y2 - y1
@@ -142,29 +138,7 @@ def bypass(
                         
                         # Store current logo position for comparison
                         bypass._last_logo_pos = (x1, y1, x2, y2)
-                    
-                    # Strategy 1: If popup detected, try to click
-                    if popup_detected and not clicked:
-                        x1, y1, x2, y2 = cf_popup_detector.matched_bbox
-                        cx = x1 + int((x2 - x1) * 0.1)
-                        cy = (y1 + y2) // 2
-                        
-                        logger.info(f"CAPTCHA popup detected at ({x1},{y1})-({x2},{y2}), clicking at: ({cx}, {cy})")
-                        logger.info(f"Popup click position: ({cx}, {cy}) - watch for mouse movement")
-                        success = safe_click(None, cx, cy)
-                        if success:
-                            clicked = True
-                            logger.info("Popup click completed, waiting for page response...")
-                            time.sleep(3)
-                            
-                            # Check if successful
-                            if not cf_logo_detector.is_detected():
-                                logger.info("CAPTCHA bypass successful! Logo disappeared")
-                                return True
-                    
-                    # Strategy 2: If only logo detected but no popup
-                    elif logo_detected and not popup_detected and not clicked:
-                        logger.warning("CloudFlare logo detected but no popup, trying comprehensive click strategies")
+                        logger.info("CloudFlare logo detected, using adaptive click positioning")
                         x1, y1, x2, y2 = cf_logo_detector.matched_bbox
                         logo_center_x = (x1 + x2) // 2
                         logo_center_y = (y1 + y2) // 2
@@ -324,8 +298,8 @@ def bypass(
                         logger.info("Tried all click positions, marking as clicked")
                         break  # Exit threshold loop after trying alternative strategies
                     
-                    # If we found something, no need to try lower thresholds
-                    if popup_detected or logo_detected:
+                    # If we found logo, no need to try lower thresholds
+                    if logo_detected:
                         break
                         
                 except Exception as e:
