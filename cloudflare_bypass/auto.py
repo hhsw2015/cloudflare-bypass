@@ -244,8 +244,9 @@ def bypass(
                         except Exception as e:
                             logger.warning(f"Failed to save debug screenshot: {e}")
                         
-                        # Use the first (best) position only - we know it's correct
+                        # Use the first (best) position and adjust 2px left as requested
                         best_pos_x, best_pos_y = click_positions[0]
+                        best_pos_x -= 2  # Move 2 pixels left for better positioning
                         
                         # Re-detect logo position to get fresh Y coordinate
                         try:

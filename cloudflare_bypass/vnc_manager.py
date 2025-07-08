@@ -91,10 +91,10 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：先确保窗口获得焦点，然后点击
-            logger.info("先确保窗口获得焦点...")
+            # 第二步：确保窗口焦点，然后执行目标点击
+            logger.info("确保窗口获得焦点...")
             
-            # 先点击窗口任意位置获得焦点
+            # 先点击当前位置获得焦点
             focus_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "click", "1"
@@ -109,13 +109,13 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("窗口焦点获取完成，等待0.5秒...")
-            time.sleep(0.5)
+            logger.info("窗口焦点已获得，等待1秒确保生效...")
+            time.sleep(1.0)  # 增加等待时间确保焦点生效
             
-            # 现在执行目标点击
-            logger.info("执行目标位置点击...")
+            # 执行目标点击
+            logger.info("执行目标复选框点击...")
             
-            # 按下
+            # 按下鼠标
             logger.info("按下鼠标...")
             press_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
@@ -147,7 +147,7 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("目标点击完成")
+            logger.info("复选框点击完成")
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
