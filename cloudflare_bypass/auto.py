@@ -128,10 +128,20 @@ def bypass(
                         # Check if logo size seems reasonable for CloudFlare logo
                         if logo_width < 50 or logo_height < 20 or logo_width > 300 or logo_height > 150:
                             logger.warning(f"Detected logo size seems unusual: {logo_width}x{logo_height} - might be false positive")
+                            continue  # Skip this detection, try next threshold/mode
                         
                         # Check if logo position seems reasonable (not at screen edges)
                         if x1 < 50 or y1 < 50 or x2 > 1200 or y2 > 800:
                             logger.warning(f"Detected logo at edge of screen: ({x1},{y1})-({x2},{y2}) - might be false positive")
+                            continue  # Skip this detection, try next threshold/mode
+                        
+                        # Check if this is the same logo position as before (might be stuck on wrong element)
+                        if hasattr(bypass, '_last_logo_pos') and bypass._last_logo_pos == (x1, y1, x2, y2):
+                            logger.warning(f"Same logo position detected again: ({x1},{y1})-({x2},{y2}) - might be wrong element")
+                            continue  # Skip this detection, try next threshold/mode
+                        
+                        # Store current logo position for comparison
+                        bypass._last_logo_pos = (x1, y1, x2, y2)
                     
                     # Strategy 1: If popup detected, try to click
                     if popup_detected and not clicked:
@@ -166,11 +176,25 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Adjust based on feedback: move further left, only adjust X-axis
-                        checkbox_distances = [90, 110, 130, 80, 100, 120]  # Try multiple distances, further left
+                        # Try even more left positions based on common CAPTCHA layouts
+                        # Many CAPTCHA checkboxes are 150-200px left of any text/logo
+                        checkbox_distances = [150, 180, 200, 120, 140, 160]  # Much further left
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))
+                        
+                        # Also try some common absolute positions where checkboxes typically appear
+                        common_checkbox_positions = [
+                            (300, logo_center_y),  # Common left area
+                            (250, logo_center_y),  # Further left
+                            (350, logo_center_y),  # Slightly right of common
+                            (200, logo_center_y),  # Very left
+                        ]
+                        
+                        # Add common positions that are not too close to detected logo
+                        for pos_x, pos_y in common_checkbox_positions:
+                            if abs(pos_x - logo_center_x) > 100:  # At least 100px away from logo
+                                click_positions.append((pos_x, pos_y))
                         
                         # Focus only on X-axis left positions, no other strategies needed
                         
