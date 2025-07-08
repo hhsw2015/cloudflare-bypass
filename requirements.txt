@@ -1,4 +1,5 @@
-opencv-python
-Pillow
+cloudflare_bypass
+vncdotool
+opencv-python-headless
 numpy
-pyautogui
+pillow
