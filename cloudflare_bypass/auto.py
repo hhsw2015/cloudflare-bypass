@@ -176,26 +176,47 @@ def bypass(
                         click_positions = []
                         
                         # Strategy 1: Look for checkbox to the left (most common)
-                        # Success! Position 436 worked, but can be fine-tuned to center better
-                        # Make positioning adaptive based on logo size instead of fixed pixels
-                        
-                        # Calculate adaptive distances based on logo dimensions
-                        logo_width = x2 - x1
-                        logo_height = y2 - y1
-                        
-                        # Adaptive checkbox positioning based on logo size
-                        # Typically checkbox is about 1.5-2x logo width to the left
-                        base_distance = int(logo_width * 1.6)  # Base distance adaptive to logo size
-                        
-                        # Fine-tune around the successful position (436 was good, try slightly left)
-                        fine_tune_offsets = [-5, 0, 5, -10, 10, -3]  # Small adjustments around base
-                        
-                        checkbox_distances = []
-                        for offset in fine_tune_offsets:
-                            adaptive_distance = base_distance + offset
-                            checkbox_distances.append(adaptive_distance)
-                        
-                        logger.info(f"Using adaptive positioning: logo_width={logo_width}, base_distance={base_distance}")
+                        # Success! Position 436 worked for screen resolution, now make it adaptive to screen size
+                        # Get current screen dimensions from the screenshot
+                        try:
+                            # Capture screenshot to get current screen dimensions
+                            import subprocess
+                            screenshot_path = "temp_screen_size.png"
+                            vncdo_cmd = ["vncdo", "-s", f"127.0.0.1::5900", "capture", screenshot_path]
+                            subprocess.run(vncdo_cmd, check=True, timeout=10)
+                            
+                            import cv2
+                            temp_img = cv2.imread(screenshot_path)
+                            if temp_img is not None:
+                                current_height, current_width = temp_img.shape[:2]
+                                logger.info(f"Current screen size: {current_width}x{current_height}")
+                                
+                                # Reference successful case: 436px worked on what screen size?
+                                # Assume reference was 1920x1080 (common resolution)
+                                reference_width = 1920
+                                reference_success_distance = 160  # 596-436=160
+                                
+                                # Calculate scale factor based on width
+                                scale_factor = current_width / reference_width
+                                
+                                # Scale the successful distance
+                                scaled_base_distance = int(reference_success_distance * scale_factor)
+                                
+                                logger.info(f"Screen scale factor: {scale_factor:.3f}, scaled_distance: {scaled_base_distance}")
+                                
+                                # Fine-tune around the scaled position
+                                fine_tune_offsets = [-5, 0, 5, -10, 10, -3]  # Small adjustments
+                                
+                                checkbox_distances = []
+                                for offset in fine_tune_offsets:
+                                    adaptive_distance = scaled_base_distance + offset
+                                    checkbox_distances.append(adaptive_distance)
+                            else:
+                                logger.warning("Could not get screen size, using fallback distances")
+                                checkbox_distances = [160, 165, 170, 155, 175, 150]  # Fallback
+                        except Exception as e:
+                            logger.warning(f"Error getting screen size: {e}, using fallback distances")
+                            checkbox_distances = [160, 165, 170, 155, 175, 150]  # Fallback
                         
                         for distance in checkbox_distances:
                             click_positions.append((x1 - distance, logo_center_y))
