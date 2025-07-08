@@ -179,9 +179,9 @@ def bypass(
                                 
                                 logger.info(f"Screen scale factor: {scale_factor:.3f}, scaled_distance: {scaled_base_distance}")
                                 
-                                # Fine-tune based on feedback: 461px was 10px right of checkbox center
-                                # Need to move about 10-15px more left for first attempt
-                                fine_tune_offsets = [-20, -25, -15, -30, -10, -18]  # Move significantly more left
+                                # Fix direction: need to INCREASE distance to move LEFT
+                                # 461px was 10px right, need to move left by increasing distance from logo
+                                fine_tune_offsets = [20, 25, 15, 30, 10, 18]  # INCREASE distance to move LEFT
                                 
                                 checkbox_distances = []
                                 for offset in fine_tune_offsets:
