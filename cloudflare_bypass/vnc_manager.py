@@ -108,6 +108,24 @@ class VNCManager:
             )
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
+            
+            # 确保鼠标停留在点击位置，不跳回原位
+            logger.info("确保鼠标停留在点击位置...")
+            stay_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x), str(final_y)
+            ]
+            
+            subprocess.run(
+                stay_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info(f"鼠标已固定在位置: ({final_x}, {final_y})")
             return True
             
         except subprocess.CalledProcessError as e:
