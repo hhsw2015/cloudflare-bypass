@@ -118,6 +118,21 @@ def bypass(
                     
                     logger.info(f"Popup detected: {popup_detected}, Logo detected: {logo_detected}")
                     
+                    # If logo detected, log more details about the detection
+                    if logo_detected:
+                        x1, y1, x2, y2 = cf_logo_detector.matched_bbox
+                        logo_width = x2 - x1
+                        logo_height = y2 - y1
+                        logger.info(f"Logo details: position=({x1},{y1})-({x2},{y2}), size={logo_width}x{logo_height}, confidence={current_threshold}")
+                        
+                        # Check if logo size seems reasonable for CloudFlare logo
+                        if logo_width < 50 or logo_height < 20 or logo_width > 300 or logo_height > 150:
+                            logger.warning(f"Detected logo size seems unusual: {logo_width}x{logo_height} - might be false positive")
+                        
+                        # Check if logo position seems reasonable (not at screen edges)
+                        if x1 < 50 or y1 < 50 or x2 > 1200 or y2 > 800:
+                            logger.warning(f"Detected logo at edge of screen: ({x1},{y1})-({x2},{y2}) - might be false positive")
+                    
                     # Strategy 1: If popup detected, try to click
                     if popup_detected and not clicked:
                         x1, y1, x2, y2 = cf_popup_detector.matched_bbox
@@ -143,30 +158,45 @@ def bypass(
                         logo_center_x = (x1 + x2) // 2
                         logo_center_y = (y1 + y2) // 2
                         
-                        # Try multiple click positions around and within the logo area
-                        click_positions = [
-                            # Common checkbox positions (left side of verification area)
-                            (x1 - 100, logo_center_y),     # Far left
-                            (x1 - 60, logo_center_y),      # Left of logo
-                            (x1 - 30, logo_center_y),      # Close left
-                            
-                            # Below logo (common verification button area)
-                            (logo_center_x, y2 + 20),      # Just below
-                            (logo_center_x, y2 + 40),      # Further below
-                            (logo_center_x, y2 + 60),      # Even further below
-                            
-                            # Right side positions
-                            (x2 + 30, logo_center_y),      # Right of logo
-                            (x2 + 60, logo_center_y),      # Far right
-                            
-                            # Above logo
-                            (logo_center_x, y1 - 20),      # Above logo
-                            
-                            # Within logo area (in case logo itself is clickable)
-                            (logo_center_x, logo_center_y), # Center of logo
-                            (x1 + 20, logo_center_y),      # Left part of logo
-                            (x2 - 20, logo_center_y),      # Right part of logo
+                        # Calculate logo dimensions for better positioning
+                        logo_width = x2 - x1
+                        logo_height = y2 - y1
+                        
+                        # More strategic click positions based on common CAPTCHA layouts
+                        click_positions = []
+                        
+                        # Strategy 1: Look for checkbox to the left (most common)
+                        checkbox_distance = max(50, logo_width // 2)  # Adaptive distance
+                        click_positions.extend([
+                            (x1 - checkbox_distance, logo_center_y),
+                            (x1 - checkbox_distance - 20, logo_center_y),
+                            (x1 - checkbox_distance + 20, logo_center_y),
+                        ])
+                        
+                        # Strategy 2: Look for verification area below logo
+                        below_distance = max(30, logo_height // 2)
+                        click_positions.extend([
+                            (logo_center_x, y2 + below_distance),
+                            (logo_center_x - 50, y2 + below_distance),
+                            (logo_center_x + 50, y2 + below_distance),
+                        ])
+                        
+                        # Strategy 3: Try common screen positions for CAPTCHA
+                        # These are typical positions where "I'm not a robot" appears
+                        screen_positions = [
+                            (300, 400), (400, 400), (500, 400),  # Common center areas
+                            (200, 350), (300, 350), (400, 350),  # Slightly higher
+                            (200, 450), (300, 450), (400, 450),  # Lower areas
                         ]
+                        
+                        # Only add screen positions that are not too close to detected logo
+                        for pos_x, pos_y in screen_positions:
+                            distance_from_logo = ((pos_x - logo_center_x) ** 2 + (pos_y - logo_center_y) ** 2) ** 0.5
+                            if distance_from_logo > 100:  # At least 100 pixels away from logo
+                                click_positions.append((pos_x, pos_y))
+                        
+                        # Limit to first 8 positions to avoid too many attempts
+                        click_positions = click_positions[:8]
                         
                         logger.info(f"Logo detected at ({x1}, {y1}) to ({x2}, {y2}), trying {len(click_positions)} positions")
                         
@@ -201,21 +231,39 @@ def bypass(
                             logger.warning(f"Failed to save debug screenshot: {e}")
                         
                         for i, (pos_x, pos_y) in enumerate(click_positions):
-                            logger.info(f"Trying click position {i+1}/{len(click_positions)}: ({pos_x}, {pos_y})")
+                            logger.info(f"Trying strategic click position {i+1}/{len(click_positions)}: ({pos_x}, {pos_y})")
                             success = safe_click(None, pos_x, pos_y)
                             if success:
-                                time.sleep(3)  # Wait longer for page response
-                                # Check if this click worked
-                                try:
-                                    if not cf_logo_detector.is_detected():
-                                        logger.info(f"Success! Click position {i+1} worked: ({pos_x}, {pos_y})")
-                                        return True
-                                    else:
-                                        logger.info(f"Click position {i+1} didn't work, logo still present")
-                                except:
-                                    logger.warning("Error checking logo after click, continuing...")
+                                time.sleep(4)  # Wait even longer for page response
+                                # Check if this click worked with multiple detection attempts
+                                logo_disappeared = False
+                                for check_attempt in range(3):  # Try 3 times to check
+                                    try:
+                                        time.sleep(1)  # Small delay between checks
+                                        if not cf_logo_detector.is_detected():
+                                            logo_disappeared = True
+                                            break
+                                    except:
+                                        continue
+                                
+                                if logo_disappeared:
+                                    logger.info(f"SUCCESS! Click position {i+1} worked: ({pos_x}, {pos_y})")
+                                    return True
+                                else:
+                                    logger.info(f"Click position {i+1} didn't work, logo still present after {pos_x}, {pos_y}")
+                                    
+                                    # If we've tried 3 positions without success, maybe wrong logo detected
+                                    if i >= 2:
+                                        logger.warning("Multiple clicks failed - might be detecting wrong element or different CAPTCHA type")
+                                        # Try a few random positions as last resort
+                                        random_positions = [(350, 400), (450, 350), (250, 450)]
+                                        for j, (rand_x, rand_y) in enumerate(random_positions):
+                                            logger.info(f"Trying random fallback position {j+1}: ({rand_x}, {rand_y})")
+                                            safe_click(None, rand_x, rand_y)
+                                            time.sleep(2)
+                                        break
                             else:
-                                logger.warning(f"Click position {i+1} failed to execute")
+                                logger.warning(f"Click position {i+1} failed to execute: ({pos_x}, {pos_y})")
                         
                         clicked = True
                         logger.info("Tried all click positions, marking as clicked")
