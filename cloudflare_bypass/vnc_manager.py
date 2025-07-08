@@ -70,15 +70,37 @@ class VNCManager:
             final_x = x + delta_x
             final_y = y + delta_y
             
-            logger.info(f"第一步：移动鼠标到目标位置: ({final_x}, {final_y})")
+            # 第一步：先在页面空白处点击获得焦点
+            logger.info("第一步：在页面空白处点击获得窗口焦点...")
             
-            # 第一步：只移动鼠标，不点击
+            # 在页面左上角空白处点击获得焦点
+            blank_area_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", "100", "100",
+                "click", "1"
+            ]
+            
+            subprocess.run(
+                blank_area_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10
+            )
+            
+            logger.info("窗口焦点已获得，等待1秒...")
+            time.sleep(1.0)
+            
+            # 第二步：移动到目标位置
+            logger.info(f"第二步：移动鼠标到目标位置: ({final_x}, {final_y})")
+            
             move_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "move", str(final_x), str(final_y)
             ]
             
-            result = subprocess.run(
+            subprocess.run(
                 move_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
@@ -89,31 +111,10 @@ class VNCManager:
             
             logger.info(f"鼠标已移动到: ({final_x}, {final_y}) - 请观察鼠标位置")
             logger.info("停留1秒让您确认位置...")
-            time.sleep(1.0)  # 停留1秒让用户看清位置
+            time.sleep(1.0)
             
-            # 第二步：确保窗口焦点，然后执行目标点击
-            logger.info("确保窗口获得焦点...")
-            
-            # 先点击当前位置获得焦点
-            focus_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "1"
-            ]
-            
-            subprocess.run(
-                focus_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            
-            logger.info("窗口焦点已获得，等待1秒确保生效...")
-            time.sleep(1.0)  # 增加等待时间确保焦点生效
-            
-            # 执行目标点击
-            logger.info("执行目标复选框点击...")
+            # 第三步：执行目标点击
+            logger.info("第三步：执行复选框点击...")
             
             # 按下鼠标
             logger.info("按下鼠标...")
@@ -147,27 +148,7 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("复选框点击完成")
-            
-            logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
-            
-            # 确保鼠标停留在点击位置，不跳回原位
-            logger.info("确保鼠标停留在点击位置...")
-            stay_cmd = [
-                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "move", str(final_x), str(final_y)
-            ]
-            
-            subprocess.run(
-                stay_cmd,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            
-            logger.info(f"鼠标已固定在位置: ({final_x}, {final_y})")
+            logger.info(f"复选框点击完成，鼠标保持在位置: ({final_x}, {final_y})")
             return True
             
         except subprocess.CalledProcessError as e:
