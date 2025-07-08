@@ -48,16 +48,16 @@ class BaseDetector:
             except Exception as e:
                 logger.warning(f"断开 VNC 连接时出错: {e}")
 
-        max_retries = 10  # 增加重试次数
-        initial_delay = 10  # 初始延迟 10 秒，确保 VNC 服务器完全启动
-        retry_interval = 5  # 每次重试间隔 5 秒
+        max_retries = 10
+        initial_delay = 10  # 初始延迟 10 秒
+        retry_interval = 5  # 重试间隔 5 秒
         logger.info(f"等待 {initial_delay} 秒以确保 VNC 服务器启动")
         time.sleep(initial_delay)
 
         for attempt in range(max_retries):
             try:
                 logger.info(f"第 {attempt + 1}/{max_retries} 次尝试: 连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}")
-                self.client = api.connect(f"{self.vnc_host}:{self.vnc_port}", password=self.vnc_password)
+                self.client = api.connect(f"{self.vnc_host}:{self.vnc_port}", password=self.vnc_password, timeout=30)
                 logger.info("VNC 连接成功")
                 return
             except ConnectionRefusedError as e:
@@ -78,18 +78,34 @@ class BaseDetector:
                     raise RuntimeError(f"无法连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}: {e}")
 
     def _capture_vnc_screenshot(self):
-        """捕获 VNC 屏幕截图，带重试逻辑"""
+        """捕获 VNC 屏幕截图，带重试逻辑和连接状态检查"""
         max_retries = 5
         retry_interval = 3
         for attempt in range(max_retries):
             try:
                 logger.info("正在捕获 VNC 截图")
+                # 检查连接状态
+                if not self.client.transport or not self.client.transport.connected:
+                    logger.warning("VNC 连接已断开，尝试重新连接")
+                    self._connect_vnc()
                 self.client.captureScreen("screenshot.png")
                 img = cv2.imread("screenshot.png")
                 if img is None:
                     raise ValueError("无法读取截图")
                 logger.info("VNC 截图捕获成功")
                 return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            except (ConnectionRefusedError, ValueError) as e:
+                logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
+                try:
+                    self._connect_vnc()
+                except RuntimeError as conn_err:
+                    logger.error(f"重新连接失败: {conn_err}")
+                if attempt < max_retries - 1:
+                    logger.info(f"等待 {retry_interval} 秒后重试")
+                    time.sleep(retry_interval)
+                else:
+                    logger.error("捕获 VNC 截图失败，已达最大重试次数")
+                    raise RuntimeError(f"捕获 VNC 截图失败: {e}")
             except Exception as e:
                 logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
                 try:
@@ -101,8 +117,7 @@ class BaseDetector:
                     time.sleep(retry_interval)
                 else:
                     logger.error("捕获 VNC 截图失败，已达最大重试次数")
-                    raise RuntimeError("捕获 VNC 截图失败")
-        raise RuntimeError("捕获 VNC 截图失败")
+                    raise RuntimeError(f"捕获 VNC 截图失败: {e}")
 
     def _match(self, img: np.ndarray, template: np.ndarray) -> Union[None, Tuple[int]]:
         result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
