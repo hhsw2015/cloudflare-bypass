@@ -41,12 +41,17 @@ class BaseDetector:
 
     def _connect_vnc(self):
         """建立或重新建立 VNC 连接，带重试逻辑"""
+        # 避免频繁断开，仅在必要时断开
         if self.client:
             try:
+                if self.client.transport and self.client.transport.connected:
+                    logger.info("现有 VNC 连接仍然有效，无需重新连接")
+                    return
                 self.client.disconnect()
                 logger.info("已断开现有 VNC 连接")
             except Exception as e:
                 logger.warning(f"断开 VNC 连接时出错: {e}")
+            self.client = None
 
         max_retries = 10
         initial_delay = 10  # 初始延迟 10 秒
@@ -62,6 +67,7 @@ class BaseDetector:
                 return
             except ConnectionRefusedError as e:
                 logger.error(f"第 {attempt + 1} 次连接失败: 连接被拒绝 - {e}")
+                self.client = None
                 if attempt < max_retries - 1:
                     logger.info(f"等待 {retry_interval} 秒后重试")
                     time.sleep(retry_interval)
@@ -70,6 +76,7 @@ class BaseDetector:
                     raise RuntimeError(f"无法连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}: {e}")
             except Exception as e:
                 logger.error(f"第 {attempt + 1} 次连接失败: {e}")
+                self.client = None
                 if attempt < max_retries - 1:
                     logger.info(f"等待 {retry_interval} 秒后重试")
                     time.sleep(retry_interval)
@@ -83,19 +90,32 @@ class BaseDetector:
         retry_interval = 3
         for attempt in range(max_retries):
             try:
-                logger.info("正在捕获 VNC 截图")
-                # 检查连接状态
-                if not self.client.transport or not self.client.transport.connected:
-                    logger.warning("VNC 连接已断开，尝试重新连接")
+                if self.client is None:
+                    logger.warning("VNC 客户端未初始化，尝试重新连接")
                     self._connect_vnc()
+                logger.info("正在捕获 VNC 截图")
                 self.client.captureScreen("screenshot.png")
                 img = cv2.imread("screenshot.png")
                 if img is None:
                     raise ValueError("无法读取截图")
                 logger.info("VNC 截图捕获成功")
                 return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            except AttributeError as e:
+                logger.error(f"截图尝试 {attempt + 1} 失败: {e} (可能是客户端对象无效)")
+                self.client = None
+                try:
+                    self._connect_vnc()
+                except RuntimeError as conn_err:
+                    logger.error(f"重新连接失败: {conn_err}")
+                if attempt < max_retries - 1:
+                    logger.info(f"等待 {retry_interval} 秒后重试")
+                    time.sleep(retry_interval)
+                else:
+                    logger.error("捕获 VNC 截图失败，已达最大重试次数")
+                    raise RuntimeError(f"捕获 VNC 截图失败: {e}")
             except (ConnectionRefusedError, ValueError) as e:
                 logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
+                self.client = None
                 try:
                     self._connect_vnc()
                 except RuntimeError as conn_err:
@@ -108,6 +128,7 @@ class BaseDetector:
                     raise RuntimeError(f"捕获 VNC 截图失败: {e}")
             except Exception as e:
                 logger.warning(f"截图尝试 {attempt + 1} 失败: {e}")
+                self.client = None
                 try:
                     self._connect_vnc()
                 except RuntimeError as conn_err:
@@ -157,6 +178,9 @@ class BaseDetector:
             - max_value (int): 坐标的最大随机偏移量。
         """
         try:
+            if self.client is None:
+                logger.warning("VNC 客户端未初始化，尝试重新连接")
+                self._connect_vnc()
             delta_x = random.randint(-max_value, max_value)
             delta_y = random.randint(-max_value, max_value)
             click_x, click_y = x + delta_x, y + delta_y
@@ -167,4 +191,5 @@ class BaseDetector:
             logger.info(f"点击位置 ({click_x}, {click_y})")
         except Exception as e:
             logger.error(f"点击失败: {e}")
+            self.client = None
             self._connect_vnc()
