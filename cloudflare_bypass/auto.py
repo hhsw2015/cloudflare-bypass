@@ -323,13 +323,13 @@ def bypass(
         return False
 
 
-def safe_click(client, x: int, y: int, max_value: int = 5):
-    """Safe click function using vncdo commands"""
+def safe_click(client, x: int, y: int, max_value: int = 0):
+    """Safe click function using vncdo commands with no random offset"""
     try:
-        # Use VNC manager's vncdo-based click method
-        success = vnc_manager.move_and_click(x, y, max_value)
+        # Use VNC manager's vncdo-based click method with no random offset
+        success = vnc_manager.move_and_click(x, y, 0)  # Force 0 offset for precise positioning
         if success:
-            logger.info(f"Click operation successful at: ({x}, {y})")
+            logger.info(f"Click operation successful at exact position: ({x}, {y})")
         else:
             logger.warning(f"Click operation failed at: ({x}, {y})")
         return success
