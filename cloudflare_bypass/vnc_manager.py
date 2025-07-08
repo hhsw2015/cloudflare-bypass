@@ -62,7 +62,7 @@ class VNCManager:
             return False
     
     def move_and_click(self, x: int, y: int, max_value: int = 2):
-        """移动到精确位置并点击，鼠标保持在该位置"""
+        """先移动鼠标并停留，然后点击，让用户看清点击位置"""
         try:
             # 减少随机偏移，只在X轴小幅调整
             delta_x = random.randint(-max_value, max_value)
@@ -70,13 +70,31 @@ class VNCManager:
             final_x = x + delta_x
             final_y = y + delta_y
             
-            logger.info(f"使用vncdo执行移动和点击: ({final_x}, {final_y})")
+            logger.info(f"第一步：移动鼠标到目标位置: ({final_x}, {final_y})")
             
-            # 使用单个命令完成移动和点击，避免鼠标跳回
+            # 第一步：只移动鼠标，不点击
+            move_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x), str(final_y)
+            ]
+            
+            result = subprocess.run(
+                move_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10
+            )
+            
+            logger.info(f"鼠标已移动到: ({final_x}, {final_y}) - 请观察鼠标位置")
+            logger.info("停留1秒让您确认位置...")
+            time.sleep(1.0)  # 停留1秒让用户看清位置
+            
+            # 第二步：执行点击
+            logger.info("现在执行点击...")
             click_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "move", str(final_x), str(final_y),
-                "pause", "1",  # 停留1秒
                 "click", "1"
             ]
             
@@ -86,11 +104,10 @@ class VNCManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=15
+                timeout=10
             )
             
-            logger.info(f"鼠标移动并点击成功: ({final_x}, {final_y})")
-            logger.info("鼠标将保持在当前位置")
+            logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             return True
             
         except subprocess.CalledProcessError as e:
