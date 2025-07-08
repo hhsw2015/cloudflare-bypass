@@ -138,27 +138,87 @@ def bypass(
                     
                     # Strategy 2: If only logo detected but no popup
                     elif logo_detected and not popup_detected and not clicked:
-                        logger.warning("CloudFlare logo detected but no popup, trying alternative strategies")
+                        logger.warning("CloudFlare logo detected but no popup, trying comprehensive click strategies")
                         x1, y1, x2, y2 = cf_logo_detector.matched_bbox
+                        logo_center_x = (x1 + x2) // 2
+                        logo_center_y = (y1 + y2) // 2
                         
-                        # Try clicking in the verification area (usually below or to the side of logo)
+                        # Try multiple click positions around and within the logo area
                         click_positions = [
-                            ((x1 + x2) // 2, y2 + 30),  # Below logo
-                            (x1 - 80, (y1 + y2) // 2),  # Left of logo (common checkbox position)
-                            (x2 + 30, (y1 + y2) // 2),  # Right of logo
+                            # Common checkbox positions (left side of verification area)
+                            (x1 - 100, logo_center_y),     # Far left
+                            (x1 - 60, logo_center_y),      # Left of logo
+                            (x1 - 30, logo_center_y),      # Close left
+                            
+                            # Below logo (common verification button area)
+                            (logo_center_x, y2 + 20),      # Just below
+                            (logo_center_x, y2 + 40),      # Further below
+                            (logo_center_x, y2 + 60),      # Even further below
+                            
+                            # Right side positions
+                            (x2 + 30, logo_center_y),      # Right of logo
+                            (x2 + 60, logo_center_y),      # Far right
+                            
+                            # Above logo
+                            (logo_center_x, y1 - 20),      # Above logo
+                            
+                            # Within logo area (in case logo itself is clickable)
+                            (logo_center_x, logo_center_y), # Center of logo
+                            (x1 + 20, logo_center_y),      # Left part of logo
+                            (x2 - 20, logo_center_y),      # Right part of logo
                         ]
                         
-                        for pos_x, pos_y in click_positions:
-                            logger.info(f"Trying click position: ({pos_x}, {pos_y})")
+                        logger.info(f"Logo detected at ({x1}, {y1}) to ({x2}, {y2}), trying {len(click_positions)} positions")
+                        
+                        # Save debug screenshot with logo marked
+                        try:
+                            import cv2
+                            import subprocess
+                            import os
+                            
+                            # Capture current screenshot for debugging
+                            screenshot_path = "debug_logo_detection.png"
+                            vncdo_cmd = ["vncdo", "-s", f"127.0.0.1::5900", "capture", screenshot_path]
+                            subprocess.run(vncdo_cmd, check=True, timeout=10)
+                            
+                            # Load and mark the logo area
+                            img = cv2.imread(screenshot_path)
+                            if img is not None:
+                                # Draw rectangle around detected logo
+                                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                cv2.putText(img, f"Logo ({x1},{y1})-({x2},{y2})", 
+                                          (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                                
+                                # Mark all click positions
+                                for i, (pos_x, pos_y) in enumerate(click_positions):
+                                    cv2.circle(img, (pos_x, pos_y), 5, (0, 0, 255), -1)
+                                    cv2.putText(img, str(i+1), (pos_x+8, pos_y+5), 
+                                              cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+                                
+                                cv2.imwrite("debug_click_positions.png", img)
+                                logger.info("Debug screenshot saved: debug_click_positions.png")
+                        except Exception as e:
+                            logger.warning(f"Failed to save debug screenshot: {e}")
+                        
+                        for i, (pos_x, pos_y) in enumerate(click_positions):
+                            logger.info(f"Trying click position {i+1}/{len(click_positions)}: ({pos_x}, {pos_y})")
                             success = safe_click(None, pos_x, pos_y)
                             if success:
-                                time.sleep(2)
+                                time.sleep(3)  # Wait longer for page response
                                 # Check if this click worked
-                                if not cf_logo_detector.is_detected():
-                                    logger.info("Alternative click strategy successful!")
-                                    return True
+                                try:
+                                    if not cf_logo_detector.is_detected():
+                                        logger.info(f"Success! Click position {i+1} worked: ({pos_x}, {pos_y})")
+                                        return True
+                                    else:
+                                        logger.info(f"Click position {i+1} didn't work, logo still present")
+                                except:
+                                    logger.warning("Error checking logo after click, continuing...")
+                            else:
+                                logger.warning(f"Click position {i+1} failed to execute")
                         
                         clicked = True
+                        logger.info("Tried all click positions, marking as clicked")
                         break  # Exit threshold loop after trying alternative strategies
                     
                     # If we found something, no need to try lower thresholds
