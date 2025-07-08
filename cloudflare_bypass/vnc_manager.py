@@ -91,8 +91,29 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：执行最基本的按下松开操作
-            logger.info("执行基本的按下松开操作...")
+            # 第二步：先确保窗口获得焦点，然后点击
+            logger.info("先确保窗口获得焦点...")
+            
+            # 先点击窗口任意位置获得焦点
+            focus_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "click", "1"
+            ]
+            
+            subprocess.run(
+                focus_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info("窗口焦点获取完成，等待0.5秒...")
+            time.sleep(0.5)
+            
+            # 现在执行目标点击
+            logger.info("执行目标位置点击...")
             
             # 按下
             logger.info("按下鼠标...")
@@ -126,7 +147,7 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("按下松开操作完成")
+            logger.info("目标点击完成")
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
