@@ -54,8 +54,8 @@ class BaseDetector:
             self.client = None
 
         max_retries = 10
-        initial_delay = 10  # 初始延迟 10 秒
-        retry_interval = 5  # 重试间隔 5 秒
+        initial_delay = 2  # 减少初始延迟到 2 秒
+        retry_interval = 2  # 减少重试间隔到 2 秒
         logger.info(f"等待 {initial_delay} 秒以确保 VNC 服务器启动")
         time.sleep(initial_delay)
 
