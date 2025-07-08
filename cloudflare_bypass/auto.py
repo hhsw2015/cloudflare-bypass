@@ -246,7 +246,7 @@ def bypass(
                         
                         # Use the first (best) position and adjust to exact requested position
                         best_pos_x, best_pos_y = click_positions[0]
-                        best_pos_x = 434  # Set exact position as requested
+                        best_pos_x = 430  # Set exact position as requested
                         
                         # Re-detect logo position to get fresh Y coordinate
                         try:
