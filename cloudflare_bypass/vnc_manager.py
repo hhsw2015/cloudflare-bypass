@@ -91,10 +91,44 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：执行真实的按下和释放操作
-            logger.info("现在执行真实点击操作...")
+            # 第二步：执行更人性化的点击操作
+            logger.info("现在执行人性化点击操作...")
             
-            # 分步执行：按下
+            # 先稍微移动鼠标模拟人类行为
+            micro_move_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x + 1), str(final_y)
+            ]
+            
+            subprocess.run(
+                micro_move_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            time.sleep(0.1)  # 短暂停顿
+            
+            # 移回原位置
+            move_back_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x), str(final_y)
+            ]
+            
+            subprocess.run(
+                move_back_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            time.sleep(0.2)  # 稍长停顿
+            
+            # 执行按下
             mousedown_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "mousedown", "1"
@@ -109,10 +143,10 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("鼠标按下完成，保持0.1秒...")
-            time.sleep(0.1)  # 保持按下状态0.1秒
+            logger.info("鼠标按下完成，保持0.3秒...")
+            time.sleep(0.3)  # 更长的按压时间
             
-            # 分步执行：释放
+            # 执行释放
             mouseup_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "mouseup", "1"
@@ -127,7 +161,10 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("鼠标释放完成 - 真实点击操作完成")
+            logger.info("鼠标释放完成 - 人性化点击操作完成")
+            
+            # 点击后稍微等待
+            time.sleep(0.5)
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
