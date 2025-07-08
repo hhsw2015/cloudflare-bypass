@@ -148,7 +148,26 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info(f"复选框点击完成，鼠标保持在位置: ({final_x}, {final_y})")
+            logger.info(f"复选框点击完成，强制鼠标停留在目标位置...")
+            
+            # 强制鼠标停留在目标位置，防止跳回左上角
+            time.sleep(0.2)  # 短暂等待
+            
+            final_move_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "move", str(final_x), str(final_y)
+            ]
+            
+            subprocess.run(
+                final_move_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info(f"鼠标已强制固定在位置: ({final_x}, {final_y})")
             return True
             
         except subprocess.CalledProcessError as e:
