@@ -113,11 +113,29 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)
             
-            # 第三步：执行目标点击
-            logger.info("第三步：执行复选框点击...")
+            # 第三步：尝试多种点击方式
+            logger.info("第三步：尝试多种点击方式...")
             
-            # 按下鼠标
-            logger.info("按下鼠标...")
+            # 方式1：标准click命令
+            logger.info("方式1：使用标准click命令...")
+            click_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "click", "1"
+            ]
+            
+            subprocess.run(
+                click_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            time.sleep(0.5)
+            
+            # 方式2：mousedown + 短暂延迟 + mouseup
+            logger.info("方式2：使用mousedown/mouseup...")
             press_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "mousedown", "1"
@@ -132,8 +150,8 @@ class VNCManager:
                 timeout=5
             )
             
-            # 立即松开
-            logger.info("松开鼠标...")
+            time.sleep(0.1)  # 短暂按压
+            
             release_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
                 "mouseup", "1"
@@ -141,6 +159,24 @@ class VNCManager:
             
             subprocess.run(
                 release_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            time.sleep(0.5)
+            
+            # 方式3：使用type命令模拟空格键（有时复选框响应键盘）
+            logger.info("方式3：尝试空格键...")
+            space_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "key", "space"
+            ]
+            
+            subprocess.run(
+                space_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
