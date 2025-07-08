@@ -38,51 +38,12 @@ class BaseDetector:
         self.vnc_port = 5900
         self.vnc_password = None  # 无密码，与容器配置一致
         self.client = None
-        self._connect_vnc()
+        # 不再预先建立VNC连接，因为我们使用vncdo命令
 
     def _connect_vnc(self):
-        """建立或重新建立 VNC 连接，带重试逻辑，用于鼠标操作"""
-        if self.client:
-            try:
-                if self.client.transport and self.client.transport.connected:
-                    logger.info("现有 VNC 连接仍然有效，无需重新连接")
-                    return
-                self.client.disconnect()
-                logger.info("已断开现有 VNC 连接")
-            except Exception as e:
-                logger.warning(f"断开 VNC 连接时出错: {e}")
-            self.client = None
-
-        max_retries = 10
-        initial_delay = 2  # 减少初始延迟到 2 秒
-        retry_interval = 2  # 减少重试间隔到 2 秒
-        logger.info(f"等待 {initial_delay} 秒以确保 VNC 服务器启动")
-        time.sleep(initial_delay)
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"第 {attempt + 1}/{max_retries} 次尝试: 连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}")
-                self.client = api.connect(f"{self.vnc_host}:{self.vnc_port}", password=self.vnc_password, timeout=30)
-                logger.info("VNC 连接成功")
-                return
-            except ConnectionRefusedError as e:
-                logger.error(f"第 {attempt + 1} 次连接失败: 连接被拒绝 - {e}")
-                self.client = None
-                if attempt < max_retries - 1:
-                    logger.info(f"等待 {retry_interval} 秒后重试")
-                    time.sleep(retry_interval)
-                else:
-                    logger.error("无法连接到 VNC 服务器，已达最大重试次数")
-                    raise RuntimeError(f"无法连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}: {e}")
-            except Exception as e:
-                logger.error(f"第 {attempt + 1} 次连接失败: {e}")
-                self.client = None
-                if attempt < max_retries - 1:
-                    logger.info(f"等待 {retry_interval} 秒后重试")
-                    time.sleep(retry_interval)
-                else:
-                    logger.error("无法连接到 VNC 服务器，已达最大重试次数")
-                    raise RuntimeError(f"无法连接到 VNC 服务器 {self.vnc_host}:{self.vnc_port}: {e}")
+        """保留此方法以兼容旧代码，但不再实际建立连接"""
+        logger.info("跳过VNC连接建立，使用vncdo命令行工具进行操作")
+        pass
 
     def _capture_vnc_screenshot(self):
         """使用 vncdo 命令捕获 VNC 屏幕截图"""
@@ -155,7 +116,7 @@ class BaseDetector:
 
     def click_like_human(self, x: int, y: int, max_value: int = 5):
         """
-        使用 vncdotool 模拟人类点击，带随机偏移。
+        使用 vncdo 命令模拟人类点击，带随机偏移。
 
         参数:
             - x (int): 点击的 X 坐标。
@@ -163,18 +124,13 @@ class BaseDetector:
             - max_value (int): 坐标的最大随机偏移量。
         """
         try:
-            if self.client is None:
-                logger.warning("VNC 客户端未初始化，尝试重新连接")
-                self._connect_vnc()
-            delta_x = random.randint(-max_value, max_value)
-            delta_y = random.randint(-max_value, max_value)
-            click_x, click_y = x + delta_x, y + delta_y
-            logger.info(f"移动鼠标到 ({click_x}, {click_y})")
-            self.client.mouseMove(click_x, click_y)
-            self.client.mousePress(1)  # 左键按下
-            self.client.mouseRelease(1)  # 左键释放
-            logger.info(f"点击位置 ({click_x}, {click_y})")
+            from cloudflare_bypass.vnc_manager import vnc_manager
+            success = vnc_manager.move_and_click(x, y, max_value)
+            if success:
+                logger.info(f"点击操作成功: ({x}, {y})")
+            else:
+                logger.warning(f"点击操作失败: ({x}, {y})")
+            return success
         except Exception as e:
-            logger.error(f"点击失败: {e}")
-            self.client = None
-            self._connect_vnc()
+            logger.error(f"点击操作异常: {e}")
+            return False

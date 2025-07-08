@@ -197,33 +197,16 @@ def bypass(
 
 
 def safe_click(client, x: int, y: int, max_value: int = 5):
-    """Safe click function using VNC manager"""
+    """Safe click function using vncdo commands"""
     try:
-        # Use VNC manager to get a reliable connection
-        vnc_client = vnc_manager.get_client()
-        
-        delta_x = random.randint(-max_value, max_value)
-        delta_y = random.randint(-max_value, max_value)
-        final_x = x + delta_x
-        final_y = y + delta_y
-        
-        logger.info(f"Moving mouse to ({final_x}, {final_y})")
-        vnc_client.mouseMove(final_x, final_y)
-        time.sleep(0.3)
-        
-        logger.info("Performing click")
-        vnc_client.mousePress(1)
-        time.sleep(0.1)
-        vnc_client.mouseRelease(1)
-        
-        logger.info(f"Click completed successfully at: ({final_x}, {final_y})")
-        return True
+        # Use VNC manager's vncdo-based click method
+        success = vnc_manager.move_and_click(x, y, max_value)
+        if success:
+            logger.info(f"Click operation successful at: ({x}, {y})")
+        else:
+            logger.warning(f"Click operation failed at: ({x}, {y})")
+        return success
         
     except Exception as e:
-        logger.error(f"Click failed: {e}")
-        # Try to reconnect for next attempt
-        try:
-            vnc_manager.disconnect()
-        except:
-            pass
+        logger.error(f"Click operation exception: {e}")
         return False
