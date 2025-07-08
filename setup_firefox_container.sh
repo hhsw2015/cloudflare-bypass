@@ -34,3 +34,6 @@ docker exec firefox sh -c "
 
 echo "Container setup complete!"
 echo "You can now use docker exec commands to control the mouse in the Firefox container."
+echo ""
+echo "Testing the setup..."
+python3 test_firefox_container.py
