@@ -31,18 +31,11 @@ def wait_until(detector, warmup_time: Union[None, int] = None, timeout: int = 20
 
 
 def click_like_human(x: int, y: int, max_value: int = 5):
-    """
-    Simulate a human-like click with a small random deviation.
-
-    Parameters:
-        - x (int): X-coordinate of the click.
-        - y (int): Y-coordinate of the click.
-        - max_value (int): Maximum deviation from the specified coordinates.
-    """
     delta_x = random.randint(-max_value, max_value)
     delta_y = random.randint(-max_value, max_value)
-    pyautogui.click(x=x + delta_x, y=y + delta_y)
-
+    cf_popup_detector.client.mouseMove(x + delta_x, y + delta_y)
+    cf_popup_detector.client.mousePress(1)
+    cf_popup_detector.client.mouseRelease(1)
 
 def bypass(
     mode: str = 'light',
