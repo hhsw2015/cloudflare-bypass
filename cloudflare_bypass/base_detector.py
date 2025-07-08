@@ -10,7 +10,7 @@ class BaseDetector:
         self.threshold = threshold
         self.matched_bbox = None
         self.vnc_host = "31.22.111.162"  # 替换为实际 IP
-        self.vnc_port = 5900
+        self.vnc_port = 5800
         self.vnc_password = ""  # 替换为实际密码
         self.client = api.connect(f"{self.vnc_host}:{self.vnc_port}", password=self.vnc_password)
 
