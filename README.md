@@ -21,12 +21,10 @@
 ### 1. 安装依赖
 
 ```bash
-pip install opencv-python numpy
-```
+# 安装Python依赖
+pip install -r requirements.txt
 
-确保容器中已安装 `xdotool`：
-
-```bash
+# 确保容器中已安装 xdotool
 docker exec firefox sh -c 'apk update && apk add xdotool'
 ```
 
