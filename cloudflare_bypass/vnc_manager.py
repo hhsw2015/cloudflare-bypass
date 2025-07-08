@@ -91,17 +91,18 @@ class VNCManager:
             logger.info("停留1秒让您确认位置...")
             time.sleep(1.0)  # 停留1秒让用户看清位置
             
-            # 第二步：执行最简单的单击
-            logger.info("执行简单轻柔单击...")
+            # 第二步：执行最基本的按下松开操作
+            logger.info("执行基本的按下松开操作...")
             
-            # 只使用最基本的单击，避免触发界面变化
-            simple_click_cmd = [
+            # 按下
+            logger.info("按下鼠标...")
+            press_cmd = [
                 "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
-                "click", "1"
+                "mousedown", "1"
             ]
             
             subprocess.run(
-                simple_click_cmd,
+                press_cmd,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -109,7 +110,23 @@ class VNCManager:
                 timeout=5
             )
             
-            logger.info("简单单击完成")
+            # 立即松开
+            logger.info("松开鼠标...")
+            release_cmd = [
+                "vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}",
+                "mouseup", "1"
+            ]
+            
+            subprocess.run(
+                release_cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            
+            logger.info("按下松开操作完成")
             
             logger.info(f"点击完成: ({final_x}, {final_y}) - 鼠标保持在当前位置")
             
