@@ -268,7 +268,8 @@ def bypass(
                             
                             success = safe_click(None, best_pos_x, best_pos_y)
                             if success:
-                                logger.info(f"Click executed, waiting 5 seconds to check result...")
+                                logger.info(f"Click executed at ({best_pos_x}, {best_pos_y}), waiting 5 seconds to check result...")
+                                # Do NOT move mouse after click - let it stay where it is
                                 time.sleep(5)  # Wait 5 seconds as requested
                                 
                                 # Check if logo disappeared (verification passed)
