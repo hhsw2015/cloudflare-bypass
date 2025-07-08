@@ -149,11 +149,12 @@ def bypass(
                         cx = x1 + int((x2 - x1) * 0.1)
                         cy = (y1 + y2) // 2
                         
-                        logger.info(f"CAPTCHA popup detected, clicking at: ({cx}, {cy})")
+                        logger.info(f"CAPTCHA popup detected at ({x1},{y1})-({x2},{y2}), clicking at: ({cx}, {cy})")
+                        logger.info(f"Popup click position: ({cx}, {cy}) - watch for mouse movement")
                         success = safe_click(None, cx, cy)
                         if success:
                             clicked = True
-                            logger.info("Click completed, waiting for page response...")
+                            logger.info("Popup click completed, waiting for page response...")
                             time.sleep(3)
                             
                             # Check if successful
