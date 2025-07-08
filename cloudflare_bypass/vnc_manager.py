@@ -88,7 +88,7 @@ class VNCManager:
             )
             
             logger.info("鼠标移动成功")
-            time.sleep(0.3)  # 短暂延迟模拟人类行为
+            time.sleep(1.0)  # 停留1秒让用户看到鼠标位置
             
             # 再执行点击
             click_cmd = [
@@ -106,6 +106,7 @@ class VNCManager:
             )
             
             logger.info(f"点击操作成功: ({final_x}, {final_y})")
+            time.sleep(1.0)  # 点击后再停留1秒
             return True
             
         except subprocess.CalledProcessError as e:
