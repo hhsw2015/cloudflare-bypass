@@ -11,9 +11,10 @@ def main():
         bypassed = bypass(
             mode='light',
             warmup_time=5,
-            timeout=30,
+            timeout=45,
             interval=0.5,
-            threshold=0.8
+            threshold=0.6,
+            max_attempts=8
         )
         if bypassed:
             print("Cloudflare CAPTCHA 绕过成功！")
