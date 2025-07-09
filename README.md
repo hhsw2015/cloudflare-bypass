@@ -8,7 +8,7 @@
 2. **自动识别** - 检测 Cloudflare 和 Google reCAPTCHA 验证
 3. **智能点击** - 根据验证类型执行不同的点击策略
 4. **状态判断** - 准确判断验证成功、失败或进行中
-5. **语音验证** - 自动切换到语音验证并处理重试逻辑
+5. **语音验证** - 使用固定坐标自动点击语音按钮并处理重试逻辑
 
 ## 系统要求
 
@@ -103,9 +103,6 @@ print('✓ 所有依赖安装成功')
 - `images/` - 检测模板图像目录
   - `cf_logo.png` - Cloudflare logo (亮色模式)
   - `cf_logo_dark.png` - Cloudflare logo (暗色模式)  
-  - `voice_button_48_48.png` - 语音按钮模板 (48x48)
-  - `voice_button_120_120.png` - 语音按钮模板 (120x120)
-  - `voice_button_512_512.png` - 语音按钮模板 (512x512)
 - `requirements.txt` - Python 依赖列表
 - `README.md` - 使用说明
 
@@ -124,7 +121,7 @@ python3 cloudflare_monitor.py
 ### 调试模式
 
 ```bash
-# 仅测试语音按钮检测
+# 仅测试语音验证（使用固定坐标）
 python3 cloudflare_monitor.py --voice-only --debug
 
 # 坐标调试（移动鼠标到指定位置，不点击）
@@ -177,7 +174,7 @@ python3 cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45 --
 
 #### 图像验证 → 语音验证
 - 检测到 "Select all squares" 等图像验证
-- 自动点击语音按钮切换到语音验证
+- 使用固定坐标 (735, 985) 自动点击语音按钮切换到语音验证
 
 #### 语音验证失败 → 重新开始
 - 检测到 "Press PLAY to listen" 但验证失败
@@ -231,13 +228,13 @@ docker ps | grep firefox2
 docker exec firefox2 sh -c 'apk update && apk add xdotool'
 ```
 
-#### 4. 模板匹配失败
+#### 4. 语音验证坐标调整
 ```bash
-# 使用调试模式查看截图
-python3 cloudflare_monitor.py --voice-only --debug
+# 使用坐标调试功能确认语音按钮位置
+python3 cloudflare_monitor.py --move-to 735,985
 
-# 检查保存的截图文件
-ls -la debug_*.png
+# 使用调试模式查看语音验证过程
+python3 cloudflare_monitor.py --voice-only --debug
 ```
 
 ### 调试技巧
@@ -254,9 +251,9 @@ python3 cloudflare_monitor.py --debug
 python3 cloudflare_monitor.py --move-to 735,985
 ```
 
-#### 查看模板匹配
+#### 查看语音验证调试
 ```bash
-# 查看模板匹配的置信度和位置
+# 查看语音验证的详细过程和OCR识别结果
 python3 cloudflare_monitor.py --voice-only --debug
 ```
 
@@ -265,7 +262,7 @@ python3 cloudflare_monitor.py --voice-only --debug
 ### 提高识别准确率
 - 确保 VNC 分辨率足够高
 - 使用稳定的网络连接
-- 定期更新模板图像
+- 根据实际界面调整语音按钮坐标
 
 ### 减少资源消耗
 - 适当增加检测间隔 `--interval`

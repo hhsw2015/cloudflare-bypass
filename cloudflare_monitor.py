@@ -50,21 +50,8 @@ class CloudflareMonitor:
         if self.template is None:
             raise ValueError(f"无法加载模板图像: {template_path}")
         
-        # 加载多个谷歌语音验证按钮模板
-        self.voice_templates = {}
-        template_sizes = ["48_48", "120_120", "512_512"]
-        
-        for size in template_sizes:
-            template_path = str(image_dir / f"voice_button_{size}.png")
-            template = cv2.imread(template_path, 0)
-            if template is not None:
-                self.voice_templates[size] = template
-                logger.info(f"已加载语音按钮模板: {size}")
-            else:
-                logger.warning(f"无法加载语音按钮模板: {template_path}")
-        
-        if not self.voice_templates:
-            raise ValueError("无法加载任何语音按钮模板图像")
+        # 语音验证使用固定坐标，不需要模板
+        logger.info("语音验证使用固定坐标 (735, 985)")
     
     def capture_screenshot(self, max_retries=3, timeout=15):
         """捕获VNC屏幕截图，带重试机制"""
@@ -119,60 +106,6 @@ class CloudflareMonitor:
             logger.error(f"检测失败: {e}")
             return False, None
     
-    def detect_google_voice_button(self):
-        """检测谷歌语音验证按钮 - 使用多模板检测"""
-        try:
-            # 捕获屏幕截图
-            img = self.capture_screenshot()
-            img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            
-            # 调试模式：保存当前截图
-            if self.debug_mode:
-                debug_screenshot_path = f"debug_voice_screenshot_{int(time.time())}.png"
-                cv2.imwrite(debug_screenshot_path, img_gray)
-                logger.info(f"调试模式：已保存截图到 {debug_screenshot_path}")
-            
-            best_confidence = 0
-            best_bbox = None
-            best_template_size = None
-            
-            # 尝试所有模板
-            for size, template in self.voice_templates.items():
-                result = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
-                _, confidence, _, max_loc = cv2.minMaxLoc(result)
-                
-                if self.debug_mode:
-                    logger.info(f"模板 {size}: 置信度 {confidence:.3f}")
-                
-                if confidence > best_confidence:
-                    best_confidence = confidence
-                    h, w = template.shape
-                    top_left = max_loc
-                    bottom_right = (top_left[0] + w, top_left[1] + h)
-                    best_bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                    best_template_size = size
-            
-            # 在调试模式下显示最佳检测结果
-            if self.debug_mode and best_bbox:
-                x1, y1, x2, y2 = best_bbox
-                center_x = (x1 + x2) // 2
-                center_y = (y1 + y2) // 2
-                logger.info(f"最佳匹配: 模板 {best_template_size}, 置信度 {best_confidence:.3f}")
-                logger.info(f"检测到的位置: ({x1},{y1})-({x2},{y2})")
-                logger.info(f"检测位置中心: ({center_x}, {center_y})")
-                logger.info(f"正确的点击位置应该是: (735, 985)")
-            
-            if best_confidence >= self.threshold:
-                logger.info(f"✅ 检测到谷歌语音按钮，最佳模板: {best_template_size}, 置信度: {best_confidence:.3f}")
-                return True, best_bbox
-            else:
-                if self.debug_mode:
-                    logger.info(f"❌ 未检测到语音按钮，最高置信度: {best_confidence:.3f} < 阈值: {self.threshold}")
-                return False, None
-                
-        except Exception as e:
-            logger.error(f"谷歌语音按钮检测失败: {e}")
-            return False, None
     
     def send_click(self, x, y):
         """向容器发送点击命令"""
@@ -257,19 +190,6 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
-    def calculate_voice_button_click_position(self, bbox=None):
-        """计算谷歌语音按钮点击位置 - 使用固定坐标"""
-        # 直接使用固定的正确坐标，不依赖检测位置
-        click_x = 735 
-        click_y = 985
-        
-        if bbox:
-            x1, y1, x2, y2 = bbox
-            logger.info(f"检测到的区域: ({x1},{y1})-({x2},{y2})，但使用固定坐标")
-        
-        logger.info(f"使用固定点击位置: ({click_x},{click_y})")
-        
-        return click_x, click_y
     
     def detect_verification_status_by_text(self):
         """
@@ -559,66 +479,43 @@ class CloudflareMonitor:
     
     def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
         """
-        仅检测谷歌语音按钮的调试模式
+        语音验证调试模式 - 使用固定坐标和OCR检测
         
         Args:
             check_interval: 检测间隔（秒）
-            voice_timeout: 谷歌语音验证检测超时时间（秒）
+            voice_timeout: 语音验证检测超时时间（秒）
         """
-        logger.info("🔧 启动谷歌语音按钮调试模式")
+        logger.info("🔧 启动语音验证调试模式（使用固定坐标）")
         
-        start_time = time.time()
-        while (time.time() - start_time) < voice_timeout:
-            try:
-                detected, bbox = self.detect_google_voice_button()
+        if OCR_AVAILABLE:
+            logger.info("🔍 使用OCR检测当前界面状态...")
+            status = self.detect_verification_status_by_text()
+            
+            if status == 'success':
+                logger.info("✅ OCR检测到验证已成功！")
+                return True
+            elif status == 'challenge':
+                logger.info("🔄 OCR检测到验证挑战，开始语音验证...")
+                # 使用固定坐标进行语音验证
+                click_x, click_y = 735, 985
+                success = self.handle_voice_verification_retry(click_x, click_y)
                 
-                if detected:
-                    logger.info("发现谷歌语音验证按钮！")
-                    click_x, click_y = self.calculate_voice_button_click_position(bbox)
-                    
-                    # 使用重试逻辑处理语音验证
-                    success = self.handle_voice_verification_retry(click_x, click_y)
-                    
-                    if success:
-                        logger.info("🎉 语音验证成功通过！")
-                        return True
-                    else:
-                        logger.error("❌ 语音验证多次尝试后仍未通过")
-                        return False
+                if success:
+                    logger.info("🎉 语音验证成功通过！")
+                    return True
                 else:
-                    # 即使没有检测到语音按钮，也尝试OCR识别当前状态
-                    if OCR_AVAILABLE:
-                        logger.info("🔍 尝试OCR识别当前界面状态...")
-                        status = self.detect_verification_status_by_text()
-                        if status == 'success':
-                            logger.info("✅ OCR检测到验证成功状态！")
-                            return True
-                        elif status == 'failed':
-                            logger.info("❌ OCR检测到验证失败状态")
-                        elif status == 'challenge':
-                            logger.info("🔄 OCR检测到验证挑战正在进行中，尝试点击语音按钮...")
-                            # 使用固定坐标点击语音按钮
-                            click_x, click_y = 735, 985
-                            success = self.handle_voice_verification_retry(click_x, click_y)
-                            
-                            if success:
-                                logger.info("🎉 语音验证成功通过！")
-                                return True
-                            else:
-                                logger.error("❌ 语音验证多次尝试后仍未通过")
-                                return False
-                        else:
-                            if self.debug_mode:
-                                logger.info("OCR未检测到明确的验证状态")
-                
-                time.sleep(check_interval)
-                
-            except Exception as e:
-                logger.error(f"检测过程中发生错误: {e}")
-                time.sleep(check_interval)
-        
-        logger.info(f"⏰ {voice_timeout}秒内未检测到谷歌语音按钮")
-        return False
+                    logger.error("❌ 语音验证多次尝试后仍未通过")
+                    return False
+            else:
+                logger.info("🔄 OCR状态未明确，尝试语音验证...")
+                click_x, click_y = 735, 985
+                success = self.handle_voice_verification_retry(click_x, click_y)
+                return success
+        else:
+            logger.info("🔄 OCR不可用，直接尝试语音验证...")
+            click_x, click_y = 735, 985
+            success = self.handle_voice_verification_retry(click_x, click_y)
+            return success
     
     def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False, voice_timeout=30):
         """
