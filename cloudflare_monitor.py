@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 try:
     import pytesseract
+    # 尝试设置tesseract路径（如果需要）
+    # pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -317,6 +319,13 @@ class CloudflareMonitor:
                 'audio challenge failed', 'challenge failed'
             ]
             
+            # Google reCAPTCHA 挑战进行中关键词
+            challenge_keywords = [
+                'select all squares', 'select all images', 'click verify',
+                'i am not a robot', 'im not a robot', 'verify you are human',
+                'please complete the security check', 'solve this puzzle'
+            ]
+            
             # 检查是否包含成功关键词
             for keyword in success_keywords:
                 if keyword in text_lower:
@@ -328,6 +337,12 @@ class CloudflareMonitor:
                 if keyword in text_lower:
                     logger.info(f"❌ OCR检测到验证失败关键词: '{keyword}'")
                     return 'failed'
+            
+            # 检查是否包含挑战进行中关键词
+            for keyword in challenge_keywords:
+                if keyword in text_lower:
+                    logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}'")
+                    return 'challenge'
             
             # 没有找到明确的关键词
             logger.debug("OCR未检测到明确的验证状态关键词")
@@ -452,6 +467,8 @@ class CloudflareMonitor:
                             logger.info("✅ OCR检测到验证成功状态！")
                         elif status == 'failed':
                             logger.info("❌ OCR检测到验证失败状态")
+                        elif status == 'challenge':
+                            logger.info("🔄 OCR检测到验证挑战正在进行中（图像验证或其他挑战）")
                         else:
                             logger.info("OCR未检测到明确的验证状态")
                 
