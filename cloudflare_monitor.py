@@ -26,7 +26,7 @@ class CloudflareMonitor:
         # 基本配置
         self.vnc_host = os.getenv("VNC_HOST", "127.0.0.1")
         self.vnc_port = 5900
-        self.container_name = os.getenv("CONTAINER_NAME", "firefox")
+        self.container_name = os.getenv("CONTAINER_NAME", "firefox2")
         self.threshold = 0.6  # 匹配阈值
         self.debug_mode = debug_mode
         
@@ -230,20 +230,22 @@ class CloudflareMonitor:
         """计算谷歌语音按钮点击位置"""
         x1, y1, x2, y2 = bbox
         
-        # 智能判断点击位置：如果检测区域在屏幕上半部分，说明可能是误匹配，需要向下偏移
-        center_y = (y1 + y2) // 2
+        # 根据之前的成功经验，X坐标应该在735左右，Y坐标需要向下偏移
+        # 如果检测到的X坐标偏差太大，使用固定的正确X坐标
+        detected_center_x = (x1 + x2) // 2
+        detected_center_y = (y1 + y2) // 2
         
-        # 假设屏幕高度约为900-1200像素，如果检测区域Y坐标小于600，很可能是误匹配到验证图片
-        if center_y < 600:
-            # 检测区域在上半部分，向下偏移到语音按钮区域
-            click_y = center_y + 160 + offset_y
-            logger.info(f"检测区域在屏幕上半部分 (Y={center_y})，自动向下偏移160像素")
+        # 使用之前验证过的正确X坐标735，或者如果检测区域X坐标接近735就使用检测值
+        if abs(detected_center_x - 735) < 50:  # 如果检测的X坐标接近735，使用检测值
+            click_x = detected_center_x + offset_x
+            logger.info(f"使用检测到的X坐标: {detected_center_x}")
         else:
-            # 检测区域已经在下半部分，可能是正确的语音按钮位置
-            click_y = center_y + offset_y
-            logger.info(f"检测区域在屏幕下半部分 (Y={center_y})，使用原始位置")
+            click_x = 735 + offset_x  # 使用之前验证过的正确X坐标
+            logger.info(f"检测X坐标({detected_center_x})偏差较大，使用固定X坐标: 735")
         
-        click_x = (x1 + x2) // 2 + offset_x
+        # Y坐标始终向下偏移160像素到实际语音按钮位置
+        click_y = detected_center_y + 160 + offset_y
+        logger.info(f"Y坐标从检测位置({detected_center_y})向下偏移160像素到: {click_y}")
         
         # 提供多个可选位置
         center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2

@@ -27,7 +27,7 @@
 pip install -r requirements.txt
 
 # 确保容器中已安装 xdotool
-docker exec firefox sh -c 'apk update && apk add xdotool'
+docker exec firefox2 sh -c 'apk update && apk add xdotool'
 ```
 
 ### 2. 运行监控
@@ -72,7 +72,7 @@ python cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45 --d
 # 设置 VNC 主机地址
 export VNC_HOST=192.168.1.100
 # 设置容器名称
-export CONTAINER_NAME=firefox
+export CONTAINER_NAME=firefox2
 # 运行监控
 python cloudflare_monitor.py
 ```
