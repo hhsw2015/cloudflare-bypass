@@ -507,18 +507,30 @@ class CloudflareMonitor:
                         logger.error("❌ 语音验证多次尝试后仍未通过")
                         return False
                 else:
-                    # 在调试模式下，即使没有检测到语音按钮，也尝试OCR识别当前状态
-                    if self.debug_mode and OCR_AVAILABLE:
-                        logger.info("🔍 调试模式：尝试OCR识别当前界面状态...")
+                    # 即使没有检测到语音按钮，也尝试OCR识别当前状态
+                    if OCR_AVAILABLE:
+                        logger.info("🔍 尝试OCR识别当前界面状态...")
                         status = self.detect_verification_status_by_text()
                         if status == 'success':
                             logger.info("✅ OCR检测到验证成功状态！")
+                            return True
                         elif status == 'failed':
                             logger.info("❌ OCR检测到验证失败状态")
                         elif status == 'challenge':
-                            logger.info("🔄 OCR检测到验证挑战正在进行中（图像验证或其他挑战）")
+                            logger.info("🔄 OCR检测到验证挑战正在进行中，尝试点击语音按钮...")
+                            # 使用固定坐标点击语音按钮
+                            click_x, click_y = 735, 985
+                            success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
+                            
+                            if success:
+                                logger.info("🎉 语音验证成功通过！")
+                                return True
+                            else:
+                                logger.error("❌ 语音验证多次尝试后仍未通过")
+                                return False
                         else:
-                            logger.info("OCR未检测到明确的验证状态")
+                            if self.debug_mode:
+                                logger.info("OCR未检测到明确的验证状态")
                 
                 time.sleep(check_interval)
                 
