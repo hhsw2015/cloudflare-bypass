@@ -436,8 +436,25 @@ class CloudflareMonitor:
                     logger.info("🔄 OCR检测到'I'm not a robot'验证界面（有挑战指示）")
                     return 'challenge'
                 else:
-                    logger.info("✅ OCR检测到'I'm not a robot'但无挑战指示，验证可能已通过")
-                    return 'success'
+                    # 检查是否仍在注册界面
+                    registration_indicators = [
+                        'create an account', 'createanaccount', 'sign up', 'signup',
+                        'register', 'registration', 'welcome to'
+                    ]
+                    
+                    still_in_registration = False
+                    for indicator in registration_indicators:
+                        if indicator.replace(' ', '') in text_nospace:
+                            still_in_registration = True
+                            logger.info(f"检测到注册界面指示: '{indicator}'")
+                            break
+                    
+                    if still_in_registration:
+                        logger.info("🔄 OCR检测到'I'm not a robot'但仍在注册界面，验证未完成")
+                        return 'challenge'
+                    else:
+                        logger.info("✅ OCR检测到'I'm not a robot'且已离开注册界面，验证可能已通过")
+                        return 'success'
             
             
             # 如果既没有成功也没有失败关键词，说明验证已通过
