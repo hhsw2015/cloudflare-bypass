@@ -353,8 +353,12 @@ class CloudflareMonitor:
                         if not still_detected:
                             logger.info("✅ Cloudflare人机验证通过成功！")
                             
-                            # Cloudflare验证通过后，检测谷歌语音验证
-                            logger.info("🔍 Cloudflare验证通过，开始检测谷歌语音验证...")
+                            # Cloudflare验证通过后，等待谷歌语音按钮出现
+                            logger.info("等待5秒让谷歌语音验证界面加载...")
+                            time.sleep(5)
+                            
+                            # 检测谷歌语音验证
+                            logger.info("🔍 开始检测谷歌语音验证...")
                             voice_detected, voice_bbox = self.detect_google_voice_button()
                             
                             if voice_detected:
