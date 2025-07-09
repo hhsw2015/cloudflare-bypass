@@ -450,10 +450,10 @@ class CloudflareMonitor:
                             break
                     
                     if still_in_registration:
-                        logger.info("🔄 OCR检测到'I'm not a robot'但仍在注册界面，验证未完成")
-                        return 'challenge'
+                        logger.info("✅ OCR检测到'I'm not a robot'在注册界面且无挑战指示，验证已成功")
+                        return 'success'
                     else:
-                        logger.info("✅ OCR检测到'I'm not a robot'且已离开注册界面，验证可能已通过")
+                        logger.info("✅ OCR检测到'I'm not a robot'且已离开注册界面，验证已通过")
                         return 'success'
             
             
