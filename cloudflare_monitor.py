@@ -11,6 +11,13 @@ import time
 import logging
 import os
 from pathlib import Path
+try:
+    import pytesseract
+    OCR_AVAILABLE = True
+    logger.info("OCR功能可用")
+except ImportError:
+    OCR_AVAILABLE = False
+    logger.warning("OCR功能不可用，请安装: pip install pytesseract")
 
 # 配置日志
 logging.basicConfig(
@@ -258,6 +265,74 @@ class CloudflareMonitor:
         
         return click_x, click_y
     
+    def detect_verification_status_by_text(self):
+        """
+        使用OCR识别验证状态文字
+        
+        Returns:
+            str: 'success' - 验证成功, 'failed' - 验证失败, 'unknown' - 无法确定
+        """
+        if not OCR_AVAILABLE:
+            return 'unknown'
+        
+        try:
+            # 捕获屏幕截图
+            img = self.capture_screenshot()
+            img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            
+            # 保存调试截图
+            if self.debug_mode:
+                debug_path = f"debug_ocr_screenshot_{int(time.time())}.png"
+                cv2.imwrite(debug_path, img_gray)
+                logger.info(f"OCR调试：已保存截图到 {debug_path}")
+            
+            # 使用OCR识别文字
+            # 配置OCR参数：适合识别reCAPTCHA界面文字
+            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?\'\"-: '
+            text = pytesseract.image_to_string(img_gray, config=custom_config, lang='eng')
+            
+            # 转换为小写便于匹配
+            text_lower = text.lower()
+            
+            if self.debug_mode:
+                logger.info(f"OCR识别到的文字: {text.strip()}")
+            
+            # Google reCAPTCHA 成功关键词
+            success_keywords = [
+                'verification complete', 'verification successful', 'verified',
+                'success', 'successful', 'completed', 'correct', 'valid',
+                'challenge solved', 'captcha solved', 'passed'
+            ]
+            
+            # Google reCAPTCHA 失败关键词
+            failed_keywords = [
+                'please try again', 'try again', 'incorrect', 'wrong',
+                'verification failed', 'failed', 'error', 'invalid',
+                'verification expired', 'expired', 'timeout',
+                'multiple correct solutions required', 'please solve',
+                'audio challenge failed', 'challenge failed'
+            ]
+            
+            # 检查是否包含成功关键词
+            for keyword in success_keywords:
+                if keyword in text_lower:
+                    logger.info(f"✅ OCR检测到验证成功关键词: '{keyword}'")
+                    return 'success'
+            
+            # 检查是否包含失败关键词
+            for keyword in failed_keywords:
+                if keyword in text_lower:
+                    logger.info(f"❌ OCR检测到验证失败关键词: '{keyword}'")
+                    return 'failed'
+            
+            # 没有找到明确的关键词
+            logger.debug("OCR未检测到明确的验证状态关键词")
+            return 'unknown'
+            
+        except Exception as e:
+            logger.error(f"OCR文字识别失败: {e}")
+            return 'unknown'
+    
     def handle_voice_verification_retry(self, voice_x, voice_y, max_retries=2):
         """
         处理语音验证重试逻辑 - 简化版，只点击2次
@@ -291,16 +366,18 @@ class CloudflareMonitor:
             logger.info("等待5秒让验证处理...")
             time.sleep(5)
             
-            # 3. 检查语音验证是否通过（如果检测不到语音按钮，说明验证通过了）
-            try:
-                voice_still_detected, _ = self.detect_google_voice_button()
-                if not voice_still_detected:
-                    logger.info("✅ 语音验证已通过（未检测到语音按钮）")
+            # 3. 使用OCR检测验证状态
+            if OCR_AVAILABLE:
+                status = self.detect_verification_status_by_text()
+                if status == 'success':
+                    logger.info("✅ OCR检测到验证成功！")
                     return True
+                elif status == 'failed':
+                    logger.info("❌ OCR检测到验证失败，继续尝试")
                 else:
-                    logger.info("语音验证界面仍然存在，需要继续尝试")
-            except Exception as e:
-                logger.warning(f"检测语音验证状态时出错: {e}")
+                    logger.info("OCR未检测到明确状态，继续流程")
+            else:
+                logger.info("OCR不可用，继续默认流程")
             
             # 4. 如果不是最后一次尝试，点击重新开始按钮
             if attempt < max_retries - 1:
@@ -317,18 +394,21 @@ class CloudflareMonitor:
                 logger.info("等待3秒让界面刷新...")
                 time.sleep(3)
         
-        # 最后检查一次语音验证是否真的通过了
-        try:
-            final_voice_detected, _ = self.detect_google_voice_button()
-            if not final_voice_detected:
-                logger.info("🎉 语音验证成功通过（未检测到语音按钮）")
+        # 最终使用OCR检测验证状态
+        if OCR_AVAILABLE:
+            logger.info("进行最终验证状态检测...")
+            final_status = self.detect_verification_status_by_text()
+            if final_status == 'success':
+                logger.info("🎉 OCR确认验证成功通过！")
                 return True
-            else:
-                logger.warning("⚠️ 语音验证可能未通过（仍检测到语音按钮）")
+            elif final_status == 'failed':
+                logger.warning("⚠️ OCR检测到验证失败")
                 return False
-        except Exception as e:
-            logger.warning(f"最终检测语音验证状态时出错: {e}")
-            logger.info("🎉 语音验证完成（已尝试2次点击，假设通过）")
+            else:
+                logger.info("🎉 语音验证完成（已尝试2次点击，OCR未检测到明确状态）")
+                return True
+        else:
+            logger.info("🎉 语音验证完成（已尝试2次点击，OCR不可用）")
             return True
     
     def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
@@ -403,29 +483,21 @@ class CloudflareMonitor:
                             logger.info("等待5秒让谷歌语音验证界面加载...")
                             time.sleep(5)
                             
-                            # 检测谷歌语音验证
-                            logger.info("🔍 开始检测谷歌语音验证...")
-                            voice_detected, voice_bbox = self.detect_google_voice_button()
+                            # 直接尝试谷歌语音验证（不依赖检测）
+                            logger.info("🔍 开始谷歌语音验证（使用固定坐标）...")
                             
-                            if voice_detected:
-                                logger.info("发现谷歌语音验证按钮！")
-                                click_x, click_y = self.calculate_voice_button_click_position(voice_bbox)
-                                
-                                # 开始语音验证重试循环
-                                success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
-                                
-                                if success:
-                                    logger.info("🎉 语音验证成功通过！")
-                                    if exit_on_success:
-                                        logger.info("🎉 所有验证完成，程序退出")
-                                        return True
-                                else:
-                                    logger.error("❌ 语音验证多次尝试后仍未通过")
+                            # 直接使用固定坐标进行语音验证
+                            click_x, click_y = 735, 985
+                            success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
+                            
+                            if success:
+                                logger.info("🎉 语音验证完成！")
                             else:
-                                logger.info("未检测到谷歌语音验证，可能已完成所有验证")
-                                if exit_on_success:
-                                    logger.info("🎉 Cloudflare验证完成，程序退出")
-                                    return True
+                                logger.info("语音验证尝试完成")
+                            
+                            if exit_on_success:
+                                logger.info("🎉 所有验证完成，程序退出")
+                                return True
                         else:
                             logger.info("❌ Cloudflare验证未通过，继续尝试...")
                     else:

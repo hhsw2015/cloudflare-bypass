@@ -1,0 +1,98 @@
+{
+  "cookies": [
+    {
+      "name": "SNID",
+      "value": "ABablnfo_z4RAxBZMF2_c-g1H-rm_WKKAPYgcMBqrdb32yRV9-YgyM8zI0pX0EKUynzikYrKQvXbQG7rhBEsJe_Nz1uu0CrBWw",
+      "domain": ".google.ca",
+      "path": "/verify",
+      "expires": 1767879033.46242,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "AEC",
+      "value": "AVh_V2j2D6G4v_IOXrbsHpETe6IpwFaB2GiAtidnZ4oSW6RfVoWboA4zQA",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1767619818.235267,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "NID",
+      "value": "525=Hnf75N4IbHXt1kG3wbRurnObveyki5RTRaMjVWrE-Nq5DY8Ftwtd1cDUFpQBbw_rPZN-af106-lfDq-eVYS5Gtt364G8SLFH3NXuECHD4tLIRCD2zp3WxMjm-UuN7nR_9OSqXGpaGl_LTneE_A4dqlhHILUwWq0KmZWVchdPvaRnhTLRbd2J5SsQrPUcrvpTXtIz0eFMhn1eTdE7ImoA069S2YrJrxDz2Rix4XETRGWuA9pFPucwrIIY-pKSCu0O",
+      "domain": ".google.com",
+      "path": "/",
+      "expires": 1767879018.400652,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "AEC",
+      "value": "AVh_V2ja_8W4psS48AfUQ0lbt6a93eDudh6IWIew8tKCyytabKhu_6q1dmc",
+      "domain": ".google.ca",
+      "path": "/",
+      "expires": 1767619833.756681,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "NID",
+      "value": "525=UcrwBehL6xBxeywa9XzsOH9WJWpS19tqbzIKVMO6pJYXgPXkxA9q7BxVRssR0vItw7ySFAyhDujz9GWDEJKg7MkaxzS4W6j4Nz27urfcb_PPLJ-Saw7O4nGAA1xlpVKbiPNxB2u51mW0dEWbhq2murHXfJCEffyweGQwq-vb2sh-jCb2OGN-cxewEUv7wptnIIudUK9k_2zI5QrkoTKjUWMbhhgMHWkp9wKbmV9s-wankpUMcPXaXTCdyp9gfM0SpXcMkN7lFOg",
+      "domain": ".google.ca",
+      "path": "/",
+      "expires": 1767879033.670889,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.google.ca",
+      "localStorage": [
+        {
+          "name": "sb_wiz.zpc.gws-wiz.",
+          "value": "{\"0\":[[\"how to solve invalid captcha problem\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"google recaptcha login\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"is google recaptcha free\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"google recaptcha v3\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"recaptcha v2\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"recaptcha accessibility\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"recaptcha test\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"recaptcha not working in chrome\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"recaptcha download\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}],[\"i am not a robot&#39;&#39; captcha test\",0,[512,308,468,357,439,650,362,394],{\"zl\":40009}]],\"1\":{\"ag\":{\"a\":{\"40009\":[\"Related to recent searches\"]}},\"av\":\"6788592529267954890\",\"q\":\"YMKdeITkECJ5C1lumMNyO51o0ZY\"}}"
+        },
+        {
+          "name": "sb_wiz.pq_tm_hp",
+          "value": "1752067892715"
+        },
+        {
+          "name": "sb_wiz.pq",
+          "value": "reCAPTCHA audio challenge \"Enter what you hear\" success failure"
+        },
+        {
+          "name": "sb_wiz.sr_di",
+          "value": "GPG6oqvRj4bd2wEY1av-goTV04TQARjMydbmn67ng1UY8e2Gn8Df9fikARid8-LX_Pi0mbwB"
+        },
+        {
+          "name": "sb_wiz.qc",
+          "value": "3"
+        },
+        {
+          "name": "sb_wiz.sc_pq",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "origin": "https://www.google.com",
+      "localStorage": [
+        {
+          "name": "sb_wiz.zpc.gws-wiz.",
+          "value": "{\"0\":[[\"clipse let god sort em out album leak\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"archita phukan viral viral video\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"richmond doctor\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"tsa shoes airports\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"starbucks new strato frappuccino drinks\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"ikea syracuse destiny usa\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"nih funding animal\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"ram recalls\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"amc movie tickets\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}],[\"lakers nba summer league\",0,[3,362,143],{\"zf\":33,\"zl\":8,\"zp\":{\"gs_ss\":\"1\"}}]],\"1\":{\"ag\":{\"a\":{\"8\":[\"Trending searches\"]}},\"av\":\"6073151763454983149\",\"q\":\"luWjdENcCUIMB3dBM737J09cR_M\"}}"
+        },
+        {
+          "name": "sb_wiz.qc",
+          "value": "1"
+        }
+      ]
+    }
+  ]
+}
