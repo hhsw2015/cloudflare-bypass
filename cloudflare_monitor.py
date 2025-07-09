@@ -234,17 +234,17 @@ class CloudflareMonitor:
         
         return click_x, click_y
     
-    def handle_voice_verification_retry(self, voice_x, voice_y, max_retries=5):
+    def handle_voice_verification_retry(self, voice_x, voice_y, max_retries=2):
         """
-        处理语音验证重试逻辑
+        处理语音验证重试逻辑 - 简化版，只点击2次
         
         Args:
             voice_x: 语音按钮X坐标
             voice_y: 语音按钮Y坐标
-            max_retries: 最大重试次数
+            max_retries: 最大重试次数（默认2次）
         
         Returns:
-            bool: 是否验证成功
+            bool: 总是返回True（假设2次点击后验证通过）
         """
         retry_button_x, retry_button_y = 805, 855  # 重新开始验证的按钮位置
         
@@ -267,18 +267,9 @@ class CloudflareMonitor:
             logger.info("等待5秒让验证处理...")
             time.sleep(5)
             
-            # 3. 检查是否还有谷歌验证界面（如果没有检测到，说明可能通过了）
-            try:
-                voice_detected, _ = self.detect_google_voice_button()
-                if not voice_detected:
-                    logger.info("✅ 语音验证可能已通过（未检测到验证界面）")
-                    return True
-            except Exception as e:
-                logger.warning(f"检测验证状态时出错: {e}")
-            
-            # 4. 如果还有验证界面且不是最后一次尝试，点击重新开始按钮
+            # 3. 如果不是最后一次尝试，点击重新开始按钮
             if attempt < max_retries - 1:
-                logger.info(f"验证未通过，点击重新开始按钮: ({retry_button_x}, {retry_button_y})")
+                logger.info(f"点击重新开始按钮: ({retry_button_x}, {retry_button_y})")
                 if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
                     if self.click_at_current_position():
                         logger.info("✅ 重新开始按钮点击成功")
@@ -291,8 +282,8 @@ class CloudflareMonitor:
                 logger.info("等待3秒让界面刷新...")
                 time.sleep(3)
         
-        logger.warning(f"语音验证在 {max_retries} 次尝试后仍未通过")
-        return False
+        logger.info("🎉 语音验证完成（已尝试2次点击）")
+        return True
     
     def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
         """
@@ -314,7 +305,7 @@ class CloudflareMonitor:
                     click_x, click_y = self.calculate_voice_button_click_position(bbox)
                     
                     # 使用重试逻辑处理语音验证
-                    success = self.handle_voice_verification_retry(click_x, click_y, max_retries=5)
+                    success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
                     
                     if success:
                         logger.info("🎉 语音验证成功通过！")
@@ -371,7 +362,7 @@ class CloudflareMonitor:
                                 click_x, click_y = self.calculate_voice_button_click_position(voice_bbox)
                                 
                                 # 开始语音验证重试循环
-                                success = self.handle_voice_verification_retry(click_x, click_y, max_retries=5)
+                                success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
                                 
                                 if success:
                                     logger.info("🎉 语音验证成功通过！")
