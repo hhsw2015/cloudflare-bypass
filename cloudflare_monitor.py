@@ -27,7 +27,7 @@ class CloudflareMonitor:
         self.vnc_host = os.getenv("VNC_HOST", "127.0.0.1")
         self.vnc_port = 5900
         self.container_name = os.getenv("CONTAINER_NAME", "firefox2")
-        self.threshold = 0.6  # 匹配阈值
+        self.threshold = 0.35  # 匹配阈值（临时降低以测试120x120模板）
         self.debug_mode = debug_mode
         
         # 加载Cloudflare logo模板
@@ -226,15 +226,16 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
-    def calculate_voice_button_click_position(self, bbox):
-        """计算谷歌语音按钮点击位置"""
-        x1, y1, x2, y2 = bbox
-        
-        # 使用固定的正确坐标
+    def calculate_voice_button_click_position(self, bbox=None):
+        """计算谷歌语音按钮点击位置 - 使用固定坐标"""
+        # 直接使用固定的正确坐标，不依赖检测位置
         click_x = 735 
         click_y = 985
         
-        logger.info(f"语音按钮检测区域: ({x1},{y1})-({x2},{y2})")
+        if bbox:
+            x1, y1, x2, y2 = bbox
+            logger.info(f"检测到的区域: ({x1},{y1})-({x2},{y2})，但使用固定坐标")
+        
         logger.info(f"使用固定点击位置: ({click_x},{click_y})")
         
         return click_x, click_y
