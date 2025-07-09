@@ -116,6 +116,18 @@ class CloudflareMonitor:
             # 在调试模式下显示检测信息
             if self.debug_mode:
                 logger.info(f"语音按钮检测置信度: {confidence:.3f}, 阈值: {self.threshold}")
+                # 显示检测到的位置（即使置信度不够）
+                h, w = self.voice_template.shape
+                top_left = max_loc
+                bottom_right = (top_left[0] + w, top_left[1] + h)
+                detected_bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
+                logger.info(f"检测到的位置: ({top_left[0]},{top_left[1]})-({bottom_right[0]},{bottom_right[1]})")
+                logger.info(f"正确的点击位置应该是: (735, 985)")
+                
+                # 计算检测位置的中心点
+                detected_center_x = (top_left[0] + bottom_right[0]) // 2
+                detected_center_y = (top_left[1] + bottom_right[1]) // 2
+                logger.info(f"检测位置中心: ({detected_center_x}, {detected_center_y})")
             
             if confidence >= self.threshold:
                 h, w = self.voice_template.shape
