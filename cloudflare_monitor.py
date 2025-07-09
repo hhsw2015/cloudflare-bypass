@@ -113,30 +113,25 @@ class CloudflareMonitor:
             result = cv2.matchTemplate(img_gray, self.voice_template, cv2.TM_CCOEFF_NORMED)
             _, confidence, _, max_loc = cv2.minMaxLoc(result)
             
-            # 显示置信度信息
-            logger.info(f"谷歌语音按钮检测置信度: {confidence:.3f}, 当前阈值: {self.threshold}")
-            
             if confidence >= self.threshold:
                 h, w = self.voice_template.shape
                 top_left = max_loc
                 bottom_right = (top_left[0] + w, top_left[1] + h)
                 bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                logger.info(f"✅ 检测到谷歌语音验证按钮，置信度: {confidence:.3f}")
+                logger.info(f"✅ 检测到谷歌语音按钮，置信度: {confidence:.3f}")
                 return True, bbox
             else:
-                # 尝试多个较低阈值
+                # 尝试较低阈值
                 lower_thresholds = [0.5, 0.4, 0.3]
                 for lower_threshold in lower_thresholds:
                     if confidence >= lower_threshold:
-                        logger.warning(f"⚠️ 使用较低阈值({lower_threshold})检测到可能的语音按钮，置信度: {confidence:.3f}")
                         h, w = self.voice_template.shape
                         top_left = max_loc
                         bottom_right = (top_left[0] + w, top_left[1] + h)
                         bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                        logger.info(f"按钮位置: ({top_left[0]},{top_left[1]})-({bottom_right[0]},{bottom_right[1]})")
+                        logger.info(f"⚠️ 检测到语音按钮（低阈值{lower_threshold}），置信度: {confidence:.3f}")
                         return True, bbox
                 
-                logger.info(f"❌ 未检测到语音按钮，最高置信度: {confidence:.3f}")
                 return False, None
                 
         except Exception as e:
@@ -226,118 +221,62 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
-    def calculate_voice_button_click_position(self, bbox, offset_x=0, offset_y=0):
+    def calculate_voice_button_click_position(self, bbox):
         """计算谷歌语音按钮点击位置"""
         x1, y1, x2, y2 = bbox
         
-        # 根据之前的成功经验，X坐标应该在735左右，Y坐标需要向下偏移
-        # 如果检测到的X坐标偏差太大，使用固定的正确X坐标
-        detected_center_x = (x1 + x2) // 2
-        detected_center_y = (y1 + y2) // 2
-        
-        # 使用之前验证过的正确X坐标735，或者如果检测区域X坐标接近735就使用检测值
+        # 使用固定的正确坐标
         click_x = 735 
-        logger.info(f"使用固定X坐标: 735")
-        
-        # Y坐标始终向下偏移200像素到实际语音按钮位置
         click_y = 985
-        logger.info(f"使用固定Y坐标: 985")
-        
-        # 提供多个可选位置
-        center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
-        left_x, left_y = x1 + 10, center_y  # 左侧偏移10像素
-        right_x, right_y = x2 - 10, center_y  # 右侧偏移10像素
-        top_x, top_y = center_x, y1 + 10  # 上方偏移10像素
-        bottom_x, bottom_y = center_x, y2 - 10  # 下方偏移10像素
         
         logger.info(f"语音按钮检测区域: ({x1},{y1})-({x2},{y2})")
-        logger.info(f"检测区域可选位置:")
-        logger.info(f"  中心: ({center_x},{center_y})")
-        logger.info(f"  左侧: ({left_x},{left_y})")
-        logger.info(f"  右侧: ({right_x},{right_y})")
-        logger.info(f"  上方: ({top_x},{top_y})")
-        logger.info(f"  下方: ({bottom_x},{bottom_y})")
-        logger.info(f"最终点击位置: ({click_x},{click_y})")
+        logger.info(f"使用固定点击位置: ({click_x},{click_y})")
         
         return click_x, click_y
     
-    def handle_google_voice_verification(self, timeout=30, offset_x=0, offset_y=0):
-        """处理谷歌语音验证，返回是否成功点击"""
-        logger.info("🔍 开始检测谷歌语音验证按钮...")
-        start_time = time.time()
-        consecutive_failures = 0
-        max_consecutive_failures = 3
-        
-        while (time.time() - start_time) < timeout:
-            try:
-                detected, bbox = self.detect_google_voice_button()
-                
-                if detected:
-                    logger.info("发现谷歌语音验证按钮！")
-                    
-                    # 计算点击位置（使用偏移参数）
-                    click_x, click_y = self.calculate_voice_button_click_position(bbox, offset_x, offset_y)
-                    
-                    # 先移动鼠标到目标位置并停留
-                    logger.info(f"🎯 移动鼠标到目标位置 ({click_x}, {click_y}) 并停留1秒...")
-                    if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
-                        # 然后执行点击
-                        logger.info(f"🖱️ 现在点击位置 ({click_x}, {click_y})")
-                        if self.click_at_current_position():
-                            logger.info("✅ 谷歌语音验证按钮点击成功！")
-                            return True
-                        else:
-                            logger.error("❌ 语音按钮点击失败")
-                            return False
-                    else:
-                        logger.error("❌ 鼠标移动失败")
-                        return False
-                
-                # 重置连续失败计数
-                consecutive_failures = 0
-                
-            except Exception as e:
-                consecutive_failures += 1
-                logger.warning(f"检测谷歌语音按钮时出错 ({consecutive_failures}/{max_consecutive_failures}): {e}")
-                
-                # 如果连续失败次数过多，提前退出
-                if consecutive_failures >= max_consecutive_failures:
-                    logger.error("连续检测失败次数过多，停止检测谷歌语音验证")
-                    break
-            
-            # 等待一段时间再检测
-            time.sleep(3)  # 增加间隔时间，减少VNC压力
-        
-        logger.info(f"⏰ {timeout}秒内未检测到谷歌语音验证按钮")
-        return False
     
-    def run_voice_debug_only(self, check_interval=3, voice_timeout=60, offset_x=0, offset_y=0):
+    def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
         """
         仅检测谷歌语音按钮的调试模式
         
         Args:
             check_interval: 检测间隔（秒）
             voice_timeout: 谷歌语音验证检测超时时间（秒）
-            offset_x: X轴偏移（像素）
-            offset_y: Y轴偏移（像素）
         """
-        logger.info("🔧 启动谷歌语音按钮调试模式 - 仅检测语音按钮")
-        if offset_x != 0 or offset_y != 0:
-            logger.info(f"使用点击偏移: X={offset_x}, Y={offset_y}")
+        logger.info("🔧 启动谷歌语音按钮调试模式")
         
-        # 直接调用语音验证处理
-        voice_success = self.handle_google_voice_verification(timeout=voice_timeout, offset_x=offset_x, offset_y=offset_y)
+        start_time = time.time()
+        while (time.time() - start_time) < voice_timeout:
+            try:
+                detected, bbox = self.detect_google_voice_button()
+                
+                if detected:
+                    logger.info("发现谷歌语音验证按钮！")
+                    click_x, click_y = self.calculate_voice_button_click_position(bbox)
+                    
+                    if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
+                        if self.click_at_current_position():
+                            logger.info("🎉 谷歌语音按钮点击成功！")
+                            return True
+                        else:
+                            logger.error("❌ 点击失败")
+                            return False
+                    else:
+                        logger.error("❌ 鼠标移动失败")
+                        return False
+                
+                time.sleep(check_interval)
+                
+            except Exception as e:
+                logger.error(f"检测过程中发生错误: {e}")
+                time.sleep(check_interval)
         
-        if voice_success:
-            logger.info("🎉 谷歌语音按钮检测并点击成功！")
-            return True
-        else:
-            logger.info("❌ 谷歌语音按钮检测失败或超时")
-            return False
+        logger.info(f"⏰ {voice_timeout}秒内未检测到谷歌语音按钮")
+        return False
     
     def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False, voice_timeout=30):
         """
-        持续监控模式
+        持续监控模式 - 先检测谷歌验证，再检测Cloudflare验证
         
         Args:
             check_interval: 检测间隔（秒）
@@ -345,48 +284,53 @@ class CloudflareMonitor:
             exit_on_success: 验证通过后是否退出程序
             voice_timeout: 谷歌语音验证检测超时时间（秒）
         """
-        logger.info("🚀 启动Cloudflare监控 - 持续监控模式")
-        if exit_on_success:
-            logger.info("✓ 验证通过后将自动退出程序")
-        else:
-            logger.info("✓ 验证通过后将继续监控")
+        logger.info("🚀 启动验证监控 - 持续监控模式")
+        logger.info("检测顺序：1. Cloudflare验证 → 2. 谷歌语音验证")
         
         while True:
             try:
-                # 检测Cloudflare验证
-                detected, bbox = self.detect_cloudflare()
+                # 1. 优先检测Cloudflare验证
+                cf_detected, cf_bbox = self.detect_cloudflare()
                 
-                if detected:
+                if cf_detected:
                     logger.info("发现Cloudflare人机验证！")
+                    click_x, click_y = self.calculate_click_position(cf_bbox)
                     
-                    # 计算点击位置
-                    click_x, click_y = self.calculate_click_position(bbox)
-                    
-                    # 发送点击命令
                     if self.send_click(click_x, click_y):
                         logger.info(f"等待 {verification_wait} 秒检查验证结果...")
                         time.sleep(verification_wait)
                         
-                        # 检查是否通过验证
                         still_detected, _ = self.detect_cloudflare()
                         if not still_detected:
                             logger.info("✅ Cloudflare人机验证通过成功！")
                             
-                            # Cloudflare验证通过后，检测谷歌语音验证按钮
-                            voice_success = self.handle_google_voice_verification(timeout=voice_timeout)
+                            # Cloudflare验证通过后，检测谷歌语音验证
+                            logger.info("🔍 Cloudflare验证通过，开始检测谷歌语音验证...")
+                            voice_detected, voice_bbox = self.detect_google_voice_button()
                             
-                            if voice_success:
-                                logger.info("🎉 所有验证完成，程序退出")
-                                return True
+                            if voice_detected:
+                                logger.info("发现谷歌语音验证按钮！")
+                                click_x, click_y = self.calculate_voice_button_click_position(voice_bbox)
+                                
+                                if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
+                                    if self.click_at_current_position():
+                                        logger.info("✅ 谷歌语音验证按钮点击成功！")
+                                        if exit_on_success:
+                                            logger.info("🎉 所有验证完成，程序退出")
+                                            return True
+                                    else:
+                                        logger.error("❌ 谷歌语音按钮点击失败")
+                                else:
+                                    logger.error("❌ 鼠标移动失败")
                             else:
-                                # 如果设置了验证通过后退出，即使没有谷歌验证也退出
+                                logger.info("未检测到谷歌语音验证，可能已完成所有验证")
                                 if exit_on_success:
-                                    logger.info("👋 Cloudflare验证通过，程序退出")
+                                    logger.info("🎉 Cloudflare验证完成，程序退出")
                                     return True
                         else:
-                            logger.info("❌ 验证未通过，继续尝试...")
+                            logger.info("❌ Cloudflare验证未通过，继续尝试...")
                     else:
-                        logger.error("点击命令发送失败")
+                        logger.error("❌ Cloudflare点击命令发送失败")
                 
                 # 等待下次检测
                 time.sleep(check_interval)
@@ -412,20 +356,46 @@ if __name__ == "__main__":
     parser.add_argument("--voice-timeout", type=int, default=30, help="谷歌语音验证检测超时时间（秒），默认为30秒")
     parser.add_argument("--debug", action="store_true", help="启用调试模式，保存截图并显示详细信息")
     parser.add_argument("--voice-only", action="store_true", help="仅检测谷歌语音按钮（调试模式）")
-    parser.add_argument("--voice-offset-x", type=int, default=0, help="语音按钮点击位置X轴偏移（像素）")
-    parser.add_argument("--voice-offset-y", type=int, default=0, help="语音按钮点击位置Y轴偏移（像素）")
+    parser.add_argument("--move-to", type=str, help="移动鼠标到指定坐标（格式：x,y）供调试用，不执行点击")
     args = parser.parse_args()
     
     # 创建监控器并运行
     monitor = CloudflareMonitor(debug_mode=args.debug)
     
+    # 坐标调试模式
+    if args.move_to:
+        try:
+            coords = args.move_to.split(',')
+            if len(coords) != 2:
+                logger.error("坐标格式错误，请使用 x,y 格式，例如：--move-to 735,985")
+                exit(1)
+            
+            x, y = int(coords[0].strip()), int(coords[1].strip())
+            logger.info(f"🎯 坐标调试模式：移动鼠标到 ({x}, {y})")
+            
+            if monitor.move_mouse_and_wait(x, y, wait_time=3):
+                logger.info(f"✅ 鼠标已移动到 ({x}, {y}) 并停留3秒")
+                logger.info("💡 请观察鼠标位置是否正确，然后按 Ctrl+C 退出")
+                
+                # 保持程序运行，让用户观察鼠标位置
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    logger.info("👋 坐标调试完成")
+            else:
+                logger.error("❌ 鼠标移动失败")
+        except ValueError:
+            logger.error("坐标值必须是整数，例如：--move-to 735,985")
+        except Exception as e:
+            logger.error(f"坐标调试失败: {e}")
+        exit(0)
+    
     if args.voice_only:
         # 仅检测谷歌语音按钮的调试模式
         monitor.run_voice_debug_only(
             check_interval=args.interval,
-            voice_timeout=args.voice_timeout,
-            offset_x=args.voice_offset_x,
-            offset_y=args.voice_offset_y
+            voice_timeout=args.voice_timeout
         )
     else:
         # 正常模式：先检测Cloudflare，再检测谷歌语音
