@@ -48,8 +48,11 @@ python cloudflare_monitor.py --interval 5
 # 自定义点击后等待验证的时间（秒）
 python cloudflare_monitor.py --wait 10
 
+# 自定义谷歌语音验证检测超时时间（秒）
+python cloudflare_monitor.py --voice-timeout 60
+
 # 组合使用
-python cloudflare_monitor.py --exit --interval 2 --wait 8
+python cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45
 ```
 
 ### 3. 配置选项

@@ -42,20 +42,33 @@ class CloudflareMonitor:
         if self.voice_template is None:
             raise ValueError(f"无法加载语音按钮模板图像: {voice_template_path}")
     
-    def capture_screenshot(self):
-        """捕获VNC屏幕截图"""
+    def capture_screenshot(self, max_retries=3, timeout=15):
+        """捕获VNC屏幕截图，带重试机制"""
         screenshot_path = "screenshot.png"
         vncdo_cmd = ["vncdo", "-s", f"{self.vnc_host}::{self.vnc_port}", "capture", screenshot_path]
         
-        try:
-            subprocess.run(vncdo_cmd, check=True, capture_output=True, timeout=10)
-            img = cv2.imread(screenshot_path)
-            if img is None:
-                raise ValueError(f"无法读取截图")
-            return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        except Exception as e:
-            logger.error(f"截图失败: {e}")
-            raise
+        for attempt in range(max_retries):
+            try:
+                logger.debug(f"截图尝试 {attempt + 1}/{max_retries}")
+                subprocess.run(vncdo_cmd, check=True, capture_output=True, timeout=timeout)
+                img = cv2.imread(screenshot_path)
+                if img is None:
+                    raise ValueError(f"无法读取截图")
+                return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            except subprocess.TimeoutExpired:
+                logger.warning(f"截图超时 (尝试 {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(2)  # 等待2秒后重试
+                else:
+                    logger.error(f"截图失败: 已达最大重试次数")
+                    raise
+            except Exception as e:
+                logger.warning(f"截图失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)  # 等待2秒后重试
+                else:
+                    logger.error(f"截图失败: {e}")
+                    raise
     
     def detect_cloudflare(self):
         """检测Cloudflare验证界面"""
@@ -162,31 +175,46 @@ class CloudflareMonitor:
         """处理谷歌语音验证，返回是否成功点击"""
         logger.info("🔍 开始检测谷歌语音验证按钮...")
         start_time = time.time()
+        consecutive_failures = 0
+        max_consecutive_failures = 3
         
         while (time.time() - start_time) < timeout:
-            detected, bbox = self.detect_google_voice_button()
-            
-            if detected:
-                logger.info("发现谷歌语音验证按钮！")
+            try:
+                detected, bbox = self.detect_google_voice_button()
                 
-                # 计算点击位置
-                click_x, click_y = self.calculate_voice_button_click_position(bbox)
+                if detected:
+                    logger.info("发现谷歌语音验证按钮！")
+                    
+                    # 计算点击位置
+                    click_x, click_y = self.calculate_voice_button_click_position(bbox)
+                    
+                    # 发送点击命令
+                    if self.send_click(click_x, click_y):
+                        logger.info("✅ 谷歌语音验证按钮点击成功！")
+                        return True
+                    else:
+                        logger.error("❌ 语音按钮点击失败")
+                        return False
                 
-                # 发送点击命令
-                if self.send_click(click_x, click_y):
-                    logger.info("✅ 谷歌语音验证按钮点击成功！")
-                    return True
-                else:
-                    logger.error("❌ 语音按钮点击失败")
-                    return False
+                # 重置连续失败计数
+                consecutive_failures = 0
+                
+            except Exception as e:
+                consecutive_failures += 1
+                logger.warning(f"检测谷歌语音按钮时出错 ({consecutive_failures}/{max_consecutive_failures}): {e}")
+                
+                # 如果连续失败次数过多，提前退出
+                if consecutive_failures >= max_consecutive_failures:
+                    logger.error("连续检测失败次数过多，停止检测谷歌语音验证")
+                    break
             
             # 等待一段时间再检测
-            time.sleep(2)
+            time.sleep(3)  # 增加间隔时间，减少VNC压力
         
         logger.info(f"⏰ {timeout}秒内未检测到谷歌语音验证按钮")
         return False
     
-    def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False):
+    def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False, voice_timeout=30):
         """
         持续监控模式
         
@@ -194,6 +222,7 @@ class CloudflareMonitor:
             check_interval: 检测间隔（秒）
             verification_wait: 点击后等待验证的时间（秒）
             exit_on_success: 验证通过后是否退出程序
+            voice_timeout: 谷歌语音验证检测超时时间（秒）
         """
         logger.info("🚀 启动Cloudflare监控 - 持续监控模式")
         if exit_on_success:
@@ -223,7 +252,7 @@ class CloudflareMonitor:
                             logger.info("✅ Cloudflare人机验证通过成功！")
                             
                             # Cloudflare验证通过后，检测谷歌语音验证按钮
-                            voice_success = self.handle_google_voice_verification(timeout=30)
+                            voice_success = self.handle_google_voice_verification(timeout=voice_timeout)
                             
                             if voice_success:
                                 logger.info("🎉 所有验证完成，程序退出")
@@ -259,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--exit", action="store_true", help="验证通过后自动退出程序")
     parser.add_argument("--interval", type=int, default=3, help="检测间隔（秒），默认为3秒")
     parser.add_argument("--wait", type=int, default=5, help="点击后等待验证的时间（秒），默认为5秒")
+    parser.add_argument("--voice-timeout", type=int, default=30, help="谷歌语音验证检测超时时间（秒），默认为30秒")
     args = parser.parse_args()
     
     # 创建监控器并运行
@@ -266,5 +296,6 @@ if __name__ == "__main__":
     monitor.run_forever(
         check_interval=args.interval,
         verification_wait=args.wait,
-        exit_on_success=args.exit
+        exit_on_success=args.exit,
+        voice_timeout=args.voice_timeout
     )
