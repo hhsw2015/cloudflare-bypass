@@ -448,22 +448,34 @@ class CloudflareMonitor:
                     logger.info("🔄 OCR检测到验证挑战仍在进行")
                     
                     # 检查是否是语音验证界面（Press PLAY to listen）
-                    if 'pressplaytolisten' in text_lower.replace(' ', ''):
-                        logger.info("检测到语音验证界面，点击重新开始按钮")
-                        # 点击重新开始按钮
-                        if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
-                            if self.click_at_current_position():
-                                logger.info("✅ 重新开始按钮点击成功")
-                            else:
-                                logger.error("❌ 重新开始按钮点击失败")
-                        else:
-                            logger.error("❌ 鼠标移动到重新开始按钮失败")
+                    # 重新获取OCR文本来检查具体内容
+                    try:
+                        img = self.capture_screenshot()
+                        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                        import pytesseract
+                        text = pytesseract.image_to_string(img_gray, config=r'--oem 3 --psm 6', lang='eng')
+                        text_lower = text.lower()
                         
-                        # 等待界面刷新
-                        logger.info("等待3秒让界面刷新...")
-                        time.sleep(3)
-                        continue  # 继续下一次尝试
-                    else:
+                        if 'pressplaytolisten' in text_lower.replace(' ', '') or 'press play to listen' in text_lower:
+                            logger.info("检测到语音验证界面，点击重新开始按钮")
+                            # 点击重新开始按钮
+                            if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
+                                if self.click_at_current_position():
+                                    logger.info("✅ 重新开始按钮点击成功")
+                                else:
+                                    logger.error("❌ 重新开始按钮点击失败")
+                            else:
+                                logger.error("❌ 鼠标移动到重新开始按钮失败")
+                            
+                            # 等待界面刷新
+                            logger.info("等待3秒让界面刷新...")
+                            time.sleep(3)
+                            continue  # 继续下一次尝试
+                        else:
+                            logger.info("继续尝试语音验证")
+                            continue  # 继续下一次尝试
+                    except Exception as e:
+                        logger.warning(f"无法重新检测OCR文本: {e}")
                         logger.info("继续尝试语音验证")
                         continue  # 继续下一次尝试
                 else:
