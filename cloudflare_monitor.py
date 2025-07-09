@@ -113,6 +113,10 @@ class CloudflareMonitor:
             result = cv2.matchTemplate(img_gray, self.voice_template, cv2.TM_CCOEFF_NORMED)
             _, confidence, _, max_loc = cv2.minMaxLoc(result)
             
+            # 在调试模式下显示检测信息
+            if self.debug_mode:
+                logger.info(f"语音按钮检测置信度: {confidence:.3f}, 阈值: {self.threshold}")
+            
             if confidence >= self.threshold:
                 h, w = self.voice_template.shape
                 top_left = max_loc
