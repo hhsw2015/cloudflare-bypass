@@ -379,13 +379,15 @@ class CloudflareMonitor:
                     return 'failed'
             
             # 检查是否包含挑战进行中关键词（使用模糊匹配）
+            text_nospace = text_lower.replace(' ', '').replace('\n', '')
+            
             if self.debug_mode:
-                logger.info(f"OCR文字处理后: {text_lower.replace(' ', '').replace('\n', '')[:100]}...")
+                text_preview = text_nospace[:100] + "..." if len(text_nospace) > 100 else text_nospace
+                logger.info(f"OCR文字处理后: {text_preview}")
             
             for keyword in challenge_keywords:
                 # 移除空格进行模糊匹配
                 keyword_nospace = keyword.replace(' ', '')
-                text_nospace = text_lower.replace(' ', '').replace('\n', '')
                 
                 if self.debug_mode:
                     logger.info(f"检查关键词: '{keyword}' -> '{keyword_nospace}'")
@@ -395,8 +397,8 @@ class CloudflareMonitor:
                     return 'challenge'
             
             # 额外检查：如果包含"imnotarobot"，说明是验证界面
-            text_nospace = text_lower.replace(' ', '').replace('\n', '').replace("'", "")
-            if 'imnotarobot' in text_nospace:
+            text_clean = text_nospace.replace("'", "")
+            if 'imnotarobot' in text_clean:
                 logger.info("🔄 OCR检测到'I'm not a robot'验证界面")
                 return 'challenge'
             
