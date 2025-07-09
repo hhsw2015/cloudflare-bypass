@@ -22,12 +22,13 @@ logger = logging.getLogger(__name__)
 class CloudflareMonitor:
     """Cloudflare监控器 - 检测验证并自动点击"""
     
-    def __init__(self):
+    def __init__(self, debug_mode=False):
         # 基本配置
         self.vnc_host = os.getenv("VNC_HOST", "127.0.0.1")
         self.vnc_port = 5900
         self.container_name = os.getenv("CONTAINER_NAME", "firefox")
         self.threshold = 0.6  # 匹配阈值
+        self.debug_mode = debug_mode
         
         # 加载Cloudflare logo模板
         image_dir = Path(__file__).parent / "images"
@@ -102,18 +103,40 @@ class CloudflareMonitor:
             img = self.capture_screenshot()
             img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             
+            # 调试模式：保存当前截图
+            if self.debug_mode:
+                debug_screenshot_path = f"debug_voice_screenshot_{int(time.time())}.png"
+                cv2.imwrite(debug_screenshot_path, img_gray)
+                logger.info(f"调试模式：已保存截图到 {debug_screenshot_path}")
+            
             # 模板匹配
             result = cv2.matchTemplate(img_gray, self.voice_template, cv2.TM_CCOEFF_NORMED)
             _, confidence, _, max_loc = cv2.minMaxLoc(result)
+            
+            # 显示置信度信息
+            logger.info(f"谷歌语音按钮检测置信度: {confidence:.3f}, 当前阈值: {self.threshold}")
             
             if confidence >= self.threshold:
                 h, w = self.voice_template.shape
                 top_left = max_loc
                 bottom_right = (top_left[0] + w, top_left[1] + h)
                 bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                logger.info(f"检测到谷歌语音验证按钮，置信度: {confidence:.3f}")
+                logger.info(f"✅ 检测到谷歌语音验证按钮，置信度: {confidence:.3f}")
                 return True, bbox
             else:
+                # 尝试多个较低阈值
+                lower_thresholds = [0.5, 0.4, 0.3]
+                for lower_threshold in lower_thresholds:
+                    if confidence >= lower_threshold:
+                        logger.warning(f"⚠️ 使用较低阈值({lower_threshold})检测到可能的语音按钮，置信度: {confidence:.3f}")
+                        h, w = self.voice_template.shape
+                        top_left = max_loc
+                        bottom_right = (top_left[0] + w, top_left[1] + h)
+                        bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
+                        logger.info(f"按钮位置: ({top_left[0]},{top_left[1]})-({bottom_right[0]},{bottom_right[1]})")
+                        return True, bbox
+                
+                logger.info(f"❌ 未检测到语音按钮，最高置信度: {confidence:.3f}")
                 return False, None
                 
         except Exception as e:
@@ -214,6 +237,26 @@ class CloudflareMonitor:
         logger.info(f"⏰ {timeout}秒内未检测到谷歌语音验证按钮")
         return False
     
+    def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
+        """
+        仅检测谷歌语音按钮的调试模式
+        
+        Args:
+            check_interval: 检测间隔（秒）
+            voice_timeout: 谷歌语音验证检测超时时间（秒）
+        """
+        logger.info("🔧 启动谷歌语音按钮调试模式 - 仅检测语音按钮")
+        
+        # 直接调用语音验证处理
+        voice_success = self.handle_google_voice_verification(timeout=voice_timeout)
+        
+        if voice_success:
+            logger.info("🎉 谷歌语音按钮检测并点击成功！")
+            return True
+        else:
+            logger.info("❌ 谷歌语音按钮检测失败或超时")
+            return False
+    
     def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False, voice_timeout=30):
         """
         持续监控模式
@@ -289,13 +332,24 @@ if __name__ == "__main__":
     parser.add_argument("--interval", type=int, default=3, help="检测间隔（秒），默认为3秒")
     parser.add_argument("--wait", type=int, default=5, help="点击后等待验证的时间（秒），默认为5秒")
     parser.add_argument("--voice-timeout", type=int, default=30, help="谷歌语音验证检测超时时间（秒），默认为30秒")
+    parser.add_argument("--debug", action="store_true", help="启用调试模式，保存截图并显示详细信息")
+    parser.add_argument("--voice-only", action="store_true", help="仅检测谷歌语音按钮（调试模式）")
     args = parser.parse_args()
     
     # 创建监控器并运行
-    monitor = CloudflareMonitor()
-    monitor.run_forever(
-        check_interval=args.interval,
-        verification_wait=args.wait,
-        exit_on_success=args.exit,
-        voice_timeout=args.voice_timeout
-    )
+    monitor = CloudflareMonitor(debug_mode=args.debug)
+    
+    if args.voice_only:
+        # 仅检测谷歌语音按钮的调试模式
+        monitor.run_voice_debug_only(
+            check_interval=args.interval,
+            voice_timeout=args.voice_timeout
+        )
+    else:
+        # 正常模式：先检测Cloudflare，再检测谷歌语音
+        monitor.run_forever(
+            check_interval=args.interval,
+            verification_wait=args.wait,
+            exit_on_success=args.exit,
+            voice_timeout=args.voice_timeout
+        )

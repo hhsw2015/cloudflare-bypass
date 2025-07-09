@@ -51,8 +51,14 @@ python cloudflare_monitor.py --wait 10
 # 自定义谷歌语音验证检测超时时间（秒）
 python cloudflare_monitor.py --voice-timeout 60
 
+# 启用调试模式（保存截图并显示详细检测信息）
+python cloudflare_monitor.py --debug
+
+# 仅检测谷歌语音按钮（调试模式）
+python cloudflare_monitor.py --voice-only --debug
+
 # 组合使用
-python cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45
+python cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45 --debug
 ```
 
 ### 3. 配置选项
