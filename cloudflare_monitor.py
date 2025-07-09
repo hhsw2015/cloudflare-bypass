@@ -409,37 +409,61 @@ class CloudflareMonitor:
                     logger.info(f"🔄 OCR检测到图像验证对象: '{obj}' (说明是图像选择验证)")
                     return 'challenge'
             
-            # 额外检查：如果包含"imnotarobot"，说明是验证界面
+            # 智能检查：如果只有"imnotarobot"但没有其他挑战关键词，说明验证已通过
             text_clean = text_nospace.replace("'", "")
             if 'imnotarobot' in text_clean:
-                logger.info("🔄 OCR检测到'I'm not a robot'验证界面")
-                return 'challenge'
+                # 检查是否有其他挑战相关的关键词
+                has_challenge_indicators = False
+                
+                # 检查是否有具体的挑战指示词
+                challenge_indicators = [
+                    'selectall', 'pressplay', 'enterwhat', 'multiplecorrect', 
+                    'pleasesolve', 'clickverify', 'solvethis'
+                ]
+                
+                for indicator in challenge_indicators:
+                    if indicator in text_nospace:
+                        has_challenge_indicators = True
+                        break
+                
+                # 检查是否有验证对象
+                for obj in image_challenge_objects:
+                    if obj.replace(' ', '') in text_nospace:
+                        has_challenge_indicators = True
+                        break
+                
+                if has_challenge_indicators:
+                    logger.info("🔄 OCR检测到'I'm not a robot'验证界面（有挑战指示）")
+                    return 'challenge'
+                else:
+                    logger.info("✅ OCR检测到'I'm not a robot'但无挑战指示，验证可能已通过")
+                    return 'success'
             
             
-            # 没有找到明确的关键词
-            logger.debug("OCR未检测到明确的验证状态关键词")
-            return 'unknown'
+            # 如果既没有成功也没有失败关键词，说明验证已通过
+            logger.info("✅ OCR未检测到任何验证相关关键词，验证可能已通过")
+            return 'success'
             
         except Exception as e:
             logger.error(f"OCR文字识别失败: {e}")
             return 'unknown'
     
-    def handle_voice_verification_retry(self, voice_x, voice_y, max_retries=2):
+    def handle_voice_verification_retry(self, voice_x, voice_y, max_retries=10):
         """
-        处理语音验证重试逻辑 - 简化版，只点击2次
+        处理语音验证重试逻辑 - 基于OCR检测结果决定是否继续
         
         Args:
             voice_x: 语音按钮X坐标
             voice_y: 语音按钮Y坐标
-            max_retries: 最大重试次数（默认2次）
+            max_retries: 最大重试次数（防止无限循环）
         
         Returns:
-            bool: 总是返回True（假设2次点击后验证通过）
+            bool: 是否验证成功
         """
         retry_button_x, retry_button_y = 805, 855  # 重新开始验证的按钮位置
         
         for attempt in range(max_retries):
-            logger.info(f"🔄 语音验证尝试 {attempt + 1}/{max_retries}")
+            logger.info(f"🔄 语音验证尝试 {attempt + 1}")
             
             # 1. 点击语音按钮
             logger.info(f"点击语音按钮: ({voice_x}, {voice_y})")
@@ -461,46 +485,39 @@ class CloudflareMonitor:
             if OCR_AVAILABLE:
                 status = self.detect_verification_status_by_text()
                 if status == 'success':
-                    logger.info("✅ OCR检测到验证成功！")
+                    logger.info("🎉 OCR检测到验证成功！")
                     return True
                 elif status == 'failed':
-                    logger.info("❌ OCR检测到验证失败，继续尝试")
-                else:
-                    logger.info("OCR未检测到明确状态，继续流程")
-            else:
-                logger.info("OCR不可用，继续默认流程")
-            
-            # 4. 如果不是最后一次尝试，点击重新开始按钮
-            if attempt < max_retries - 1:
-                logger.info(f"点击重新开始按钮: ({retry_button_x}, {retry_button_y})")
-                if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
-                    if self.click_at_current_position():
-                        logger.info("✅ 重新开始按钮点击成功")
+                    logger.info("❌ OCR检测到验证失败，点击重新开始按钮继续尝试")
+                    
+                    # 点击重新开始按钮
+                    logger.info(f"点击重新开始按钮: ({retry_button_x}, {retry_button_y})")
+                    if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
+                        if self.click_at_current_position():
+                            logger.info("✅ 重新开始按钮点击成功")
+                        else:
+                            logger.error("❌ 重新开始按钮点击失败")
                     else:
-                        logger.error("❌ 重新开始按钮点击失败")
+                        logger.error("❌ 鼠标移动到重新开始按钮失败")
+                    
+                    # 等待界面刷新
+                    logger.info("等待3秒让界面刷新...")
+                    time.sleep(3)
+                    continue  # 继续下一次尝试
+                    
+                elif status == 'challenge':
+                    logger.info("🔄 OCR检测到验证挑战仍在进行，继续尝试")
+                    continue  # 继续下一次尝试
                 else:
-                    logger.error("❌ 鼠标移动到重新开始按钮失败")
-                
-                # 等待界面刷新
-                logger.info("等待3秒让界面刷新...")
-                time.sleep(3)
-        
-        # 最终使用OCR检测验证状态
-        if OCR_AVAILABLE:
-            logger.info("进行最终验证状态检测...")
-            final_status = self.detect_verification_status_by_text()
-            if final_status == 'success':
-                logger.info("🎉 OCR确认验证成功通过！")
-                return True
-            elif final_status == 'failed':
-                logger.warning("⚠️ OCR检测到验证失败")
-                return False
+                    logger.info("OCR未检测到明确状态，假设验证成功")
+                    return True
             else:
-                logger.info("🎉 语音验证完成（已尝试2次点击，OCR未检测到明确状态）")
+                logger.warning("OCR不可用，无法判断验证状态，假设成功")
                 return True
-        else:
-            logger.info("🎉 语音验证完成（已尝试2次点击，OCR不可用）")
-            return True
+        
+        # 达到最大重试次数
+        logger.warning(f"⚠️ 已达到最大重试次数 {max_retries}，停止尝试")
+        return False
     
     def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
         """
@@ -522,7 +539,7 @@ class CloudflareMonitor:
                     click_x, click_y = self.calculate_voice_button_click_position(bbox)
                     
                     # 使用重试逻辑处理语音验证
-                    success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
+                    success = self.handle_voice_verification_retry(click_x, click_y)
                     
                     if success:
                         logger.info("🎉 语音验证成功通过！")
@@ -544,7 +561,7 @@ class CloudflareMonitor:
                             logger.info("🔄 OCR检测到验证挑战正在进行中，尝试点击语音按钮...")
                             # 使用固定坐标点击语音按钮
                             click_x, click_y = 735, 985
-                            success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
+                            success = self.handle_voice_verification_retry(click_x, click_y)
                             
                             if success:
                                 logger.info("🎉 语音验证成功通过！")
