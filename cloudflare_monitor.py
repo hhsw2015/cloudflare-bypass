@@ -317,66 +317,73 @@ class CloudflareMonitor:
                     logger.info(f"🔄 OCR检测到图像验证对象: '{obj}' (说明是图像选择验证)")
                     return 'challenge'
             
-            # 智能检查：如果只有"imnotarobot"但没有其他挑战关键词，需要谨慎判断
+            # 智能检查：如果检测到"imnotarobot"，需要仔细判断是否还在验证界面
             text_clean = text_nospace.replace("'", "")
             if 'imnotarobot' in text_clean:
-                # 检查是否有其他挑战相关的关键词
-                has_challenge_indicators = False
-                
-                # 检查是否有具体的挑战指示词
+                # 首先检查是否有明确的挑战指示词
                 challenge_indicators = [
                     'selectall', 'pressplay', 'enterwhat', 'multiplecorrect', 
-                    'pleasesolve', 'clickverify', 'solvethis'
+                    'pleasesolve', 'clickverify', 'solvethis', 'recaptcha'
                 ]
                 
+                has_challenge_indicators = False
                 for indicator in challenge_indicators:
                     if indicator in text_nospace:
                         has_challenge_indicators = True
+                        logger.info(f"🔄 检测到挑战指示词: '{indicator}'")
                         break
                 
                 # 检查是否有验证对象
                 for obj in image_challenge_objects:
                     if obj.replace(' ', '') in text_nospace:
                         has_challenge_indicators = True
+                        logger.info(f"🔄 检测到验证对象: '{obj}'")
                         break
                 
+                # 如果有明确的挑战指示，直接返回challenge
                 if has_challenge_indicators:
                     logger.info("🔄 OCR检测到'I'm not a robot'验证界面（有挑战指示）")
                     return 'challenge'
+                
+                # 如果没有明确的挑战指示，检查是否还在验证界面
+                # 关键判断：如果同时检测到注册界面和reCAPTCHA相关文字，说明还在验证过程中
+                registration_indicators = [
+                    'create an account', 'createanaccount', 'sign up', 'signup',
+                    'register', 'registration', 'welcome to'
+                ]
+                
+                # reCAPTCHA相关指示词（即使OCR识别不完整也能部分匹配）
+                recaptcha_indicators = [
+                    'recaptcha', 'captcha', 'privacy', 'terms', 'robot'
+                ]
+                
+                has_registration = False
+                has_recaptcha = False
+                
+                for indicator in registration_indicators:
+                    if indicator.replace(' ', '') in text_nospace:
+                        has_registration = True
+                        logger.info(f"检测到注册界面指示: '{indicator}'")
+                        break
+                
+                for indicator in recaptcha_indicators:
+                    if indicator in text_nospace:
+                        has_recaptcha = True
+                        logger.info(f"检测到reCAPTCHA指示: '{indicator}'")
+                        break
+                
+                # 关键逻辑：如果同时在注册界面且有reCAPTCHA相关文字，说明验证还未完成
+                if has_registration and has_recaptcha:
+                    logger.info("🔄 OCR检测到注册界面中的reCAPTCHA验证，需要点击验证")
+                    return 'challenge'
+                elif has_registration and not has_recaptcha:
+                    # 在注册界面但没有reCAPTCHA文字，可能验证已完成
+                    logger.info("✅ OCR检测到注册界面但无reCAPTCHA指示，验证可能已完成")
+                    return 'success'
                 else:
-                    # 检查OCR识别质量：如果文字过于碎片化，可能是识别不完整
-                    # 统计有意义的单词数量
-                    meaningful_words = 0
-                    word_fragments = text_lower.split()
-                    
-                    for word in word_fragments:
-                        if len(word) >= 3 and word.isalpha():  # 至少3个字母的纯字母单词
-                            meaningful_words += 1
-                    
-                    # 如果有意义的单词太少，说明OCR识别不完整，保守判断为挑战进行中
-                    if meaningful_words < 10:
-                        logger.info(f"🔄 OCR识别质量较低（有意义单词数: {meaningful_words}），保守判断为验证进行中")
-                        return 'challenge'
-                    
-                    # OCR识别质量较好的情况下，检查是否在注册界面
-                    registration_indicators = [
-                        'create an account', 'createanaccount', 'sign up', 'signup',
-                        'register', 'registration', 'welcome to'
-                    ]
-                    
-                    still_in_registration = False
-                    for indicator in registration_indicators:
-                        if indicator.replace(' ', '') in text_nospace:
-                            still_in_registration = True
-                            logger.info(f"检测到注册界面指示: '{indicator}'")
-                            break
-                    
-                    if still_in_registration:
-                        logger.info("✅ OCR检测到'I'm not a robot'在注册界面且无挑战指示，验证已成功")
-                        return 'success'
-                    else:
-                        logger.info("✅ OCR检测到'I'm not a robot'且已离开注册界面，验证已通过")
-                        return 'success'
+                    # 不在注册界面，验证应该已完成
+                    logger.info("✅ OCR检测到'I'm not a robot'但已离开注册界面，验证已通过")
+                    return 'success'
             
             
             # 如果既没有成功也没有失败关键词，说明验证已通过
