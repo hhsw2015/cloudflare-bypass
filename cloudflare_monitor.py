@@ -377,11 +377,20 @@ class CloudflareMonitor:
                     logger.info(f"❌ OCR检测到验证失败关键词: '{keyword}'")
                     return 'failed'
             
-            # 检查是否包含挑战进行中关键词
+            # 检查是否包含挑战进行中关键词（使用模糊匹配）
             for keyword in challenge_keywords:
-                if keyword in text_lower:
-                    logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}'")
+                # 移除空格进行模糊匹配
+                keyword_nospace = keyword.replace(' ', '')
+                text_nospace = text_lower.replace(' ', '').replace('\n', '')
+                
+                if keyword_nospace in text_nospace:
+                    logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}' (模糊匹配)")
                     return 'challenge'
+            
+            # 特殊检查：如果包含 "robot" 和 "recaptcha"，很可能是验证界面
+            if 'robot' in text_lower and 'recaptcha' in text_lower:
+                logger.info("🔄 OCR检测到reCAPTCHA验证界面 (包含robot和recaptcha关键词)")
+                return 'challenge'
             
             # 没有找到明确的关键词
             logger.debug("OCR未检测到明确的验证状态关键词")
