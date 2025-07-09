@@ -57,6 +57,9 @@ python cloudflare_monitor.py --debug
 # 仅检测谷歌语音按钮（调试模式）
 python cloudflare_monitor.py --voice-only --debug
 
+# 调整语音按钮点击位置（向左偏移20像素，向上偏移10像素）
+python cloudflare_monitor.py --voice-only --debug --voice-offset-x -20 --voice-offset-y -10
+
 # 组合使用
 python cloudflare_monitor.py --exit --interval 2 --wait 8 --voice-timeout 45 --debug
 ```

@@ -172,6 +172,49 @@ class CloudflareMonitor:
             logger.error(f"点击命令发送失败: {e}")
             return False
     
+    def move_mouse_and_wait(self, x, y, wait_time=1.0):
+        """移动鼠标到指定位置并等待"""
+        try:
+            logger.info(f"移动鼠标到位置: ({x}, {y})")
+            
+            # 移动鼠标命令
+            move_cmd = [
+                "docker", "exec", "-e", "DISPLAY=:0",
+                self.container_name, "xdotool", "mousemove", str(x), str(y)
+            ]
+            
+            # 执行移动命令
+            subprocess.run(move_cmd, check=True, timeout=5)
+            logger.info(f"鼠标已移动到 ({x}, {y})，等待 {wait_time} 秒...")
+            
+            # 等待指定时间
+            time.sleep(wait_time)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"鼠标移动失败: {e}")
+            return False
+    
+    def click_at_current_position(self):
+        """在当前鼠标位置执行点击"""
+        try:
+            logger.info("在当前位置执行点击")
+            
+            # 执行点击命令
+            click_cmd = [
+                "docker", "exec", "-e", "DISPLAY=:0",
+                self.container_name, "xdotool", "click", "1"
+            ]
+            
+            subprocess.run(click_cmd, check=True, timeout=5)
+            logger.info("点击执行成功")
+            return True
+            
+        except Exception as e:
+            logger.error(f"点击执行失败: {e}")
+            return False
+    
     def calculate_click_position(self, bbox):
         """计算点击位置"""
         x1, y1, x2, y2 = bbox
@@ -183,18 +226,33 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
-    def calculate_voice_button_click_position(self, bbox):
+    def calculate_voice_button_click_position(self, bbox, offset_x=0, offset_y=0):
         """计算谷歌语音按钮点击位置"""
         x1, y1, x2, y2 = bbox
         
-        # 点击位置：按钮中心
-        click_x = (x1 + x2) // 2
-        click_y = (y1 + y2) // 2
+        # 点击位置：按钮中心 + 偏移
+        click_x = (x1 + x2) // 2 + offset_x
+        click_y = (y1 + y2) // 2 + offset_y
         
-        logger.info(f"计算语音按钮点击位置: 按钮位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
+        # 提供多个可选位置
+        center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+        left_x, left_y = x1 + 10, center_y  # 左侧偏移10像素
+        right_x, right_y = x2 - 10, center_y  # 右侧偏移10像素
+        top_x, top_y = center_x, y1 + 10  # 上方偏移10像素
+        bottom_x, bottom_y = center_x, y2 - 10  # 下方偏移10像素
+        
+        logger.info(f"语音按钮检测区域: ({x1},{y1})-({x2},{y2})")
+        logger.info(f"可选点击位置:")
+        logger.info(f"  中心: ({center_x},{center_y})")
+        logger.info(f"  左侧: ({left_x},{left_y})")
+        logger.info(f"  右侧: ({right_x},{right_y})")
+        logger.info(f"  上方: ({top_x},{top_y})")
+        logger.info(f"  下方: ({bottom_x},{bottom_y})")
+        logger.info(f"当前选择: ({click_x},{click_y})")
+        
         return click_x, click_y
     
-    def handle_google_voice_verification(self, timeout=30):
+    def handle_google_voice_verification(self, timeout=30, offset_x=0, offset_y=0):
         """处理谷歌语音验证，返回是否成功点击"""
         logger.info("🔍 开始检测谷歌语音验证按钮...")
         start_time = time.time()
@@ -208,15 +266,22 @@ class CloudflareMonitor:
                 if detected:
                     logger.info("发现谷歌语音验证按钮！")
                     
-                    # 计算点击位置
-                    click_x, click_y = self.calculate_voice_button_click_position(bbox)
+                    # 计算点击位置（使用偏移参数）
+                    click_x, click_y = self.calculate_voice_button_click_position(bbox, offset_x, offset_y)
                     
-                    # 发送点击命令
-                    if self.send_click(click_x, click_y):
-                        logger.info("✅ 谷歌语音验证按钮点击成功！")
-                        return True
+                    # 先移动鼠标到目标位置并停留
+                    logger.info(f"🎯 移动鼠标到目标位置 ({click_x}, {click_y}) 并停留1秒...")
+                    if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
+                        # 然后执行点击
+                        logger.info(f"🖱️ 现在点击位置 ({click_x}, {click_y})")
+                        if self.click_at_current_position():
+                            logger.info("✅ 谷歌语音验证按钮点击成功！")
+                            return True
+                        else:
+                            logger.error("❌ 语音按钮点击失败")
+                            return False
                     else:
-                        logger.error("❌ 语音按钮点击失败")
+                        logger.error("❌ 鼠标移动失败")
                         return False
                 
                 # 重置连续失败计数
@@ -237,18 +302,22 @@ class CloudflareMonitor:
         logger.info(f"⏰ {timeout}秒内未检测到谷歌语音验证按钮")
         return False
     
-    def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
+    def run_voice_debug_only(self, check_interval=3, voice_timeout=60, offset_x=0, offset_y=0):
         """
         仅检测谷歌语音按钮的调试模式
         
         Args:
             check_interval: 检测间隔（秒）
             voice_timeout: 谷歌语音验证检测超时时间（秒）
+            offset_x: X轴偏移（像素）
+            offset_y: Y轴偏移（像素）
         """
         logger.info("🔧 启动谷歌语音按钮调试模式 - 仅检测语音按钮")
+        if offset_x != 0 or offset_y != 0:
+            logger.info(f"使用点击偏移: X={offset_x}, Y={offset_y}")
         
         # 直接调用语音验证处理
-        voice_success = self.handle_google_voice_verification(timeout=voice_timeout)
+        voice_success = self.handle_google_voice_verification(timeout=voice_timeout, offset_x=offset_x, offset_y=offset_y)
         
         if voice_success:
             logger.info("🎉 谷歌语音按钮检测并点击成功！")
@@ -334,6 +403,8 @@ if __name__ == "__main__":
     parser.add_argument("--voice-timeout", type=int, default=30, help="谷歌语音验证检测超时时间（秒），默认为30秒")
     parser.add_argument("--debug", action="store_true", help="启用调试模式，保存截图并显示详细信息")
     parser.add_argument("--voice-only", action="store_true", help="仅检测谷歌语音按钮（调试模式）")
+    parser.add_argument("--voice-offset-x", type=int, default=0, help="语音按钮点击位置X轴偏移（像素）")
+    parser.add_argument("--voice-offset-y", type=int, default=0, help="语音按钮点击位置Y轴偏移（像素）")
     args = parser.parse_args()
     
     # 创建监控器并运行
@@ -343,7 +414,9 @@ if __name__ == "__main__":
         # 仅检测谷歌语音按钮的调试模式
         monitor.run_voice_debug_only(
             check_interval=args.interval,
-            voice_timeout=args.voice_timeout
+            voice_timeout=args.voice_timeout,
+            offset_x=args.voice_offset_x,
+            offset_y=args.voice_offset_y
         )
     else:
         # 正常模式：先检测Cloudflare，再检测谷歌语音
