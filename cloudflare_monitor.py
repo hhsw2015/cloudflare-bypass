@@ -366,6 +366,13 @@ class CloudflareMonitor:
                 'press play to listen', 'enter what you hear', 'verify'
             ]
             
+            # Google reCAPTCHA 图像验证对象关键词
+            image_challenge_objects = [
+                'crosswalks', 'bicycles', 'motorcycles', 'cars', 'buses',
+                'traffic lights', 'fire hydrants', 'stairs', 'mountains',
+                'bridges', 'chimneys', 'palm trees', 'boats', 'vehicles'
+            ]
+            
             # 检查是否包含成功关键词
             for keyword in success_keywords:
                 if keyword in text_lower:
@@ -394,6 +401,12 @@ class CloudflareMonitor:
                 
                 if keyword_nospace in text_nospace:
                     logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}' (模糊匹配)")
+                    return 'challenge'
+            
+            # 检查是否包含图像验证对象关键词
+            for obj in image_challenge_objects:
+                if obj in text_lower:
+                    logger.info(f"🔄 OCR检测到图像验证对象: '{obj}' (说明是图像选择验证)")
                     return 'challenge'
             
             # 额外检查：如果包含"imnotarobot"，说明是验证界面
