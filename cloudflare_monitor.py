@@ -292,10 +292,49 @@ class CloudflareMonitor:
                 cv2.imwrite(debug_path, img_gray)
                 logger.info(f"OCR调试：已保存截图到 {debug_path}")
             
-            # 使用OCR识别文字
-            # 配置OCR参数：适合识别reCAPTCHA界面文字
-            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?\'\"-: '
-            text = pytesseract.image_to_string(img_gray, config=custom_config, lang='eng')
+            # 图像预处理以提高OCR准确率
+            # 1. 调整图像大小（放大2倍）
+            height, width = img_gray.shape
+            img_resized = cv2.resize(img_gray, (width*2, height*2), interpolation=cv2.INTER_CUBIC)
+            
+            # 2. 去噪和锐化
+            img_denoised = cv2.medianBlur(img_resized, 3)
+            
+            # 3. 二值化处理
+            _, img_binary = cv2.threshold(img_denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            # 4. 形态学操作（可选）
+            kernel = np.ones((2,2), np.uint8)
+            img_processed = cv2.morphologyEx(img_binary, cv2.MORPH_CLOSE, kernel)
+            
+            # 保存处理后的图像用于调试
+            if self.debug_mode:
+                processed_path = f"debug_ocr_processed_{int(time.time())}.png"
+                cv2.imwrite(processed_path, img_processed)
+                logger.info(f"OCR调试：已保存处理后图像到 {processed_path}")
+            
+            # 使用多种OCR配置尝试识别
+            configs = [
+                r'--oem 3 --psm 6',  # 默认配置
+                r'--oem 3 --psm 8',  # 单词模式
+                r'--oem 3 --psm 7',  # 单行文本
+                r'--oem 3 --psm 13', # 原始行文本
+            ]
+            
+            best_text = ""
+            best_confidence = 0
+            
+            for config in configs:
+                try:
+                    # 尝试不同的图像（原图、处理后的图像）
+                    for img_to_process in [img_gray, img_processed]:
+                        text = pytesseract.image_to_string(img_to_process, config=config, lang='eng')
+                        if len(text.strip()) > len(best_text.strip()):
+                            best_text = text
+                except:
+                    continue
+            
+            text = best_text
             
             # 转换为小写便于匹配
             text_lower = text.lower()
