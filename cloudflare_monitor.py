@@ -379,14 +379,26 @@ class CloudflareMonitor:
                     return 'failed'
             
             # 检查是否包含挑战进行中关键词（使用模糊匹配）
+            if self.debug_mode:
+                logger.info(f"OCR文字处理后: {text_lower.replace(' ', '').replace('\n', '')[:100]}...")
+            
             for keyword in challenge_keywords:
                 # 移除空格进行模糊匹配
                 keyword_nospace = keyword.replace(' ', '')
                 text_nospace = text_lower.replace(' ', '').replace('\n', '')
                 
+                if self.debug_mode:
+                    logger.info(f"检查关键词: '{keyword}' -> '{keyword_nospace}'")
+                
                 if keyword_nospace in text_nospace:
                     logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}' (模糊匹配)")
                     return 'challenge'
+            
+            # 额外检查：如果包含"imnotarobot"，说明是验证界面
+            text_nospace = text_lower.replace(' ', '').replace('\n', '').replace("'", "")
+            if 'imnotarobot' in text_nospace:
+                logger.info("🔄 OCR检测到'I'm not a robot'验证界面")
+                return 'challenge'
             
             
             # 没有找到明确的关键词
