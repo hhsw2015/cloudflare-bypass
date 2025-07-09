@@ -236,16 +236,12 @@ class CloudflareMonitor:
         detected_center_y = (y1 + y2) // 2
         
         # 使用之前验证过的正确X坐标735，或者如果检测区域X坐标接近735就使用检测值
-        if abs(detected_center_x - 735) < 50:  # 如果检测的X坐标接近735，使用检测值
-            click_x = detected_center_x + offset_x
-            logger.info(f"使用检测到的X坐标: {detected_center_x}")
-        else:
-            click_x = 735 + offset_x  # 使用之前验证过的正确X坐标
-            logger.info(f"检测X坐标({detected_center_x})偏差较大，使用固定X坐标: 735")
+        click_x = 735 
+        logger.info(f"使用固定X坐标: 735")
         
-        # Y坐标始终向下偏移160像素到实际语音按钮位置
-        click_y = detected_center_y + 160 + offset_y
-        logger.info(f"Y坐标从检测位置({detected_center_y})向下偏移160像素到: {click_y}")
+        # Y坐标始终向下偏移200像素到实际语音按钮位置
+        click_y = 985
+        logger.info(f"使用固定Y坐标: 985")
         
         # 提供多个可选位置
         center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
