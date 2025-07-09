@@ -38,7 +38,7 @@ class CloudflareMonitor:
             raise ValueError(f"无法加载模板图像: {template_path}")
         
         # 加载谷歌语音验证按钮模板
-        voice_template_path = str(image_dir / "voice_button.png")
+        voice_template_path = str(image_dir / "voice_button_48_48.png")
         self.voice_template = cv2.imread(voice_template_path, 0)
         if self.voice_template is None:
             raise ValueError(f"无法加载语音按钮模板图像: {voice_template_path}")
@@ -267,7 +267,18 @@ class CloudflareMonitor:
             logger.info("等待5秒让验证处理...")
             time.sleep(5)
             
-            # 3. 如果不是最后一次尝试，点击重新开始按钮
+            # 3. 检查语音验证是否通过（如果检测不到语音按钮，说明验证通过了）
+            try:
+                voice_still_detected, _ = self.detect_google_voice_button()
+                if not voice_still_detected:
+                    logger.info("✅ 语音验证已通过（未检测到语音按钮）")
+                    return True
+                else:
+                    logger.info("语音验证界面仍然存在，需要继续尝试")
+            except Exception as e:
+                logger.warning(f"检测语音验证状态时出错: {e}")
+            
+            # 4. 如果不是最后一次尝试，点击重新开始按钮
             if attempt < max_retries - 1:
                 logger.info(f"点击重新开始按钮: ({retry_button_x}, {retry_button_y})")
                 if self.move_mouse_and_wait(retry_button_x, retry_button_y, wait_time=1):
@@ -282,8 +293,19 @@ class CloudflareMonitor:
                 logger.info("等待3秒让界面刷新...")
                 time.sleep(3)
         
-        logger.info("🎉 语音验证完成（已尝试2次点击）")
-        return True
+        # 最后检查一次语音验证是否真的通过了
+        try:
+            final_voice_detected, _ = self.detect_google_voice_button()
+            if not final_voice_detected:
+                logger.info("🎉 语音验证成功通过（未检测到语音按钮）")
+                return True
+            else:
+                logger.warning("⚠️ 语音验证可能未通过（仍检测到语音按钮）")
+                return False
+        except Exception as e:
+            logger.warning(f"最终检测语音验证状态时出错: {e}")
+            logger.info("🎉 语音验证完成（已尝试2次点击，假设通过）")
+            return True
     
     def run_voice_debug_only(self, check_interval=3, voice_timeout=60):
         """
