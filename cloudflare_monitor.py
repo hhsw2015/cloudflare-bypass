@@ -342,10 +342,10 @@ class CloudflareMonitor:
             if self.debug_mode:
                 logger.info(f"OCR识别到的文字: {text.strip()}")
             
-            # Google reCAPTCHA 成功关键词
+            # Google reCAPTCHA 成功关键词（移除容易误匹配的词）
             success_keywords = [
                 'verification complete', 'verification successful', 'verified',
-                'success', 'successful', 'completed', 'correct', 'valid',
+                'success', 'successful', 'completed', 'valid',
                 'challenge solved', 'captcha solved', 'passed'
             ]
             
@@ -354,7 +354,7 @@ class CloudflareMonitor:
                 'please try again', 'try again', 'incorrect', 'wrong',
                 'verification failed', 'failed', 'error', 'invalid',
                 'verification expired', 'expired', 'timeout',
-                'multiple correct solutions required', 'please solve',
+                'multiple correct solutions required', 'please solve more',
                 'audio challenge failed', 'challenge failed'
             ]
             
