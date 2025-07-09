@@ -121,17 +121,6 @@ class CloudflareMonitor:
                 logger.info(f"✅ 检测到谷歌语音按钮，置信度: {confidence:.3f}")
                 return True, bbox
             else:
-                # 尝试较低阈值
-                lower_thresholds = [0.5, 0.4, 0.3]
-                for lower_threshold in lower_thresholds:
-                    if confidence >= lower_threshold:
-                        h, w = self.voice_template.shape
-                        top_left = max_loc
-                        bottom_right = (top_left[0] + w, top_left[1] + h)
-                        bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                        logger.info(f"⚠️ 检测到语音按钮（低阈值{lower_threshold}），置信度: {confidence:.3f}")
-                        return True, bbox
-                
                 return False, None
                 
         except Exception as e:
