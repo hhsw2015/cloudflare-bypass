@@ -27,7 +27,7 @@ class CloudflareMonitor:
         self.vnc_host = os.getenv("VNC_HOST", "127.0.0.1")
         self.vnc_port = 5900
         self.container_name = os.getenv("CONTAINER_NAME", "firefox2")
-        self.threshold = 0.32  # 匹配阈值（进一步降低以测试120x120模板）
+        self.threshold = 0.5  # 匹配阈值（多模板检测，使用中等阈值）
         self.debug_mode = debug_mode
         
         # 加载Cloudflare logo模板
@@ -37,11 +37,21 @@ class CloudflareMonitor:
         if self.template is None:
             raise ValueError(f"无法加载模板图像: {template_path}")
         
-        # 加载谷歌语音验证按钮模板
-        voice_template_path = str(image_dir / "voice_button_120_120.png")
-        self.voice_template = cv2.imread(voice_template_path, 0)
-        if self.voice_template is None:
-            raise ValueError(f"无法加载语音按钮模板图像: {voice_template_path}")
+        # 加载多个谷歌语音验证按钮模板
+        self.voice_templates = {}
+        template_sizes = ["48_48", "120_120", "512_512"]
+        
+        for size in template_sizes:
+            template_path = str(image_dir / f"voice_button_{size}.png")
+            template = cv2.imread(template_path, 0)
+            if template is not None:
+                self.voice_templates[size] = template
+                logger.info(f"已加载语音按钮模板: {size}")
+            else:
+                logger.warning(f"无法加载语音按钮模板: {template_path}")
+        
+        if not self.voice_templates:
+            raise ValueError("无法加载任何语音按钮模板图像")
     
     def capture_screenshot(self, max_retries=3, timeout=15):
         """捕获VNC屏幕截图，带重试机制"""
@@ -97,7 +107,7 @@ class CloudflareMonitor:
             return False, None
     
     def detect_google_voice_button(self):
-        """检测谷歌语音验证按钮"""
+        """检测谷歌语音验证按钮 - 使用多模板检测"""
         try:
             # 捕获屏幕截图
             img = self.capture_screenshot()
@@ -109,34 +119,42 @@ class CloudflareMonitor:
                 cv2.imwrite(debug_screenshot_path, img_gray)
                 logger.info(f"调试模式：已保存截图到 {debug_screenshot_path}")
             
-            # 模板匹配
-            result = cv2.matchTemplate(img_gray, self.voice_template, cv2.TM_CCOEFF_NORMED)
-            _, confidence, _, max_loc = cv2.minMaxLoc(result)
+            best_confidence = 0
+            best_bbox = None
+            best_template_size = None
             
-            # 在调试模式下显示检测信息
-            if self.debug_mode:
-                logger.info(f"语音按钮检测置信度: {confidence:.3f}, 阈值: {self.threshold}")
-                # 显示检测到的位置（即使置信度不够）
-                h, w = self.voice_template.shape
-                top_left = max_loc
-                bottom_right = (top_left[0] + w, top_left[1] + h)
-                detected_bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                logger.info(f"检测到的位置: ({top_left[0]},{top_left[1]})-({bottom_right[0]},{bottom_right[1]})")
-                logger.info(f"正确的点击位置应该是: (735, 985)")
+            # 尝试所有模板
+            for size, template in self.voice_templates.items():
+                result = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
+                _, confidence, _, max_loc = cv2.minMaxLoc(result)
                 
-                # 计算检测位置的中心点
-                detected_center_x = (top_left[0] + bottom_right[0]) // 2
-                detected_center_y = (top_left[1] + bottom_right[1]) // 2
-                logger.info(f"检测位置中心: ({detected_center_x}, {detected_center_y})")
+                if self.debug_mode:
+                    logger.info(f"模板 {size}: 置信度 {confidence:.3f}")
+                
+                if confidence > best_confidence:
+                    best_confidence = confidence
+                    h, w = template.shape
+                    top_left = max_loc
+                    bottom_right = (top_left[0] + w, top_left[1] + h)
+                    best_bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
+                    best_template_size = size
             
-            if confidence >= self.threshold:
-                h, w = self.voice_template.shape
-                top_left = max_loc
-                bottom_right = (top_left[0] + w, top_left[1] + h)
-                bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                logger.info(f"✅ 检测到谷歌语音按钮，置信度: {confidence:.3f}")
-                return True, bbox
+            # 在调试模式下显示最佳检测结果
+            if self.debug_mode and best_bbox:
+                x1, y1, x2, y2 = best_bbox
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                logger.info(f"最佳匹配: 模板 {best_template_size}, 置信度 {best_confidence:.3f}")
+                logger.info(f"检测到的位置: ({x1},{y1})-({x2},{y2})")
+                logger.info(f"检测位置中心: ({center_x}, {center_y})")
+                logger.info(f"正确的点击位置应该是: (735, 985)")
+            
+            if best_confidence >= self.threshold:
+                logger.info(f"✅ 检测到谷歌语音按钮，最佳模板: {best_template_size}, 置信度: {best_confidence:.3f}")
+                return True, best_bbox
             else:
+                if self.debug_mode:
+                    logger.info(f"❌ 未检测到语音按钮，最高置信度: {best_confidence:.3f} < 阈值: {self.threshold}")
                 return False, None
                 
         except Exception as e:
