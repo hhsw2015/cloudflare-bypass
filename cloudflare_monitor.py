@@ -362,7 +362,8 @@ class CloudflareMonitor:
             challenge_keywords = [
                 'select all squares', 'select all images', 'click verify',
                 'i am not a robot', 'im not a robot', 'verify you are human',
-                'please complete the security check', 'solve this puzzle'
+                'please complete the security check', 'solve this puzzle',
+                'press play to listen', 'enter what you hear', 'verify'
             ]
             
             # 检查是否包含成功关键词
@@ -387,10 +388,6 @@ class CloudflareMonitor:
                     logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}' (模糊匹配)")
                     return 'challenge'
             
-            # 特殊检查：如果包含 "robot" 和 "recaptcha"，很可能是验证界面
-            if 'robot' in text_lower and 'recaptcha' in text_lower:
-                logger.info("🔄 OCR检测到reCAPTCHA验证界面 (包含robot和recaptcha关键词)")
-                return 'challenge'
             
             # 没有找到明确的关键词
             logger.debug("OCR未检测到明确的验证状态关键词")
