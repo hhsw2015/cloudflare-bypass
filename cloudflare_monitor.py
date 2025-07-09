@@ -14,10 +14,8 @@ from pathlib import Path
 try:
     import pytesseract
     OCR_AVAILABLE = True
-    logger.info("OCR功能可用")
 except ImportError:
     OCR_AVAILABLE = False
-    logger.warning("OCR功能不可用，请安装: pip install pytesseract")
 
 # 配置日志
 logging.basicConfig(
@@ -25,6 +23,12 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# 显示OCR状态
+if OCR_AVAILABLE:
+    logger.info("OCR功能可用")
+else:
+    logger.warning("OCR功能不可用，请安装: pip install pytesseract")
 
 class CloudflareMonitor:
     """Cloudflare监控器 - 检测验证并自动点击"""
