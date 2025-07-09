@@ -322,22 +322,14 @@ class CloudflareMonitor:
                     words = [word for word in text.split() if len(word) >= 2 and any(c.isalpha() for c in word)]
                     word_count = len(words)
                     
-                    if self.debug_mode:
-                        logger.info(f"配置 {config}: 识别出 {word_count} 个有效单词")
-                    
                     if word_count > best_word_count:
                         best_text = text
                         best_word_count = word_count
                         
                 except Exception as e:
-                    if self.debug_mode:
-                        logger.warning(f"OCR配置失败: {config} - {e}")
                     continue
             
             text = best_text if best_text else ""
-            
-            if self.debug_mode:
-                logger.info(f"最佳OCR结果: {best_word_count} 个有效单词")
             
             # 转换为小写便于匹配
             text_lower = text.lower()
@@ -391,19 +383,12 @@ class CloudflareMonitor:
             # 检查是否包含挑战进行中关键词（使用模糊匹配）
             text_nospace = text_lower.replace(' ', '').replace('\n', '')
             
-            if self.debug_mode:
-                text_preview = text_nospace[:100] + "..." if len(text_nospace) > 100 else text_nospace
-                logger.info(f"OCR文字处理后: {text_preview}")
-            
             for keyword in challenge_keywords:
                 # 移除空格进行模糊匹配
                 keyword_nospace = keyword.replace(' ', '')
                 
-                if self.debug_mode:
-                    logger.info(f"检查关键词: '{keyword}' -> '{keyword_nospace}'")
-                
                 if keyword_nospace in text_nospace:
-                    logger.info(f"🔄 OCR检测到验证挑战进行中: '{keyword}' (模糊匹配)")
+                    logger.info(f"🔄 OCR检测到验证挑战: '{keyword}'")
                     return 'challenge'
             
             # 检查是否包含图像验证对象关键词
@@ -669,12 +654,26 @@ class CloudflareMonitor:
                             logger.info("等待5秒让谷歌语音验证界面加载...")
                             time.sleep(5)
                             
-                            # 直接尝试谷歌语音验证（不依赖检测）
-                            logger.info("🔍 开始谷歌语音验证（使用固定坐标）...")
+                            # 使用OCR检测当前状态，决定是否需要语音验证
+                            logger.info("🔍 检测当前验证状态...")
                             
-                            # 直接使用固定坐标进行语音验证
-                            click_x, click_y = 735, 985
-                            success = self.handle_voice_verification_retry(click_x, click_y, max_retries=2)
+                            if OCR_AVAILABLE:
+                                status = self.detect_verification_status_by_text()
+                                if status == 'success':
+                                    logger.info("✅ OCR检测到验证已成功！")
+                                    success = True
+                                elif status == 'challenge':
+                                    logger.info("🔄 OCR检测到验证挑战，开始语音验证...")
+                                    click_x, click_y = 735, 985
+                                    success = self.handle_voice_verification_retry(click_x, click_y)
+                                else:
+                                    logger.info("🔄 OCR状态未明确，尝试语音验证...")
+                                    click_x, click_y = 735, 985
+                                    success = self.handle_voice_verification_retry(click_x, click_y)
+                            else:
+                                logger.info("🔄 OCR不可用，使用固定坐标进行语音验证...")
+                                click_x, click_y = 735, 985
+                                success = self.handle_voice_verification_retry(click_x, click_y)
                             
                             if success:
                                 logger.info("🎉 语音验证完成！")
