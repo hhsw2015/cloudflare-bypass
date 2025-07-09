@@ -292,49 +292,42 @@ class CloudflareMonitor:
                 cv2.imwrite(debug_path, img_gray)
                 logger.info(f"OCR调试：已保存截图到 {debug_path}")
             
-            # 图像预处理以提高OCR准确率
-            # 1. 调整图像大小（放大2倍）
+            # 高质量图像预处理以提高OCR准确率
             height, width = img_gray.shape
-            img_resized = cv2.resize(img_gray, (width*2, height*2), interpolation=cv2.INTER_CUBIC)
             
-            # 2. 去噪和锐化
-            img_denoised = cv2.medianBlur(img_resized, 3)
+            # 1. 大幅放大图像（3倍）提高分辨率
+            img_large = cv2.resize(img_gray, (width*3, height*3), interpolation=cv2.INTER_CUBIC)
             
-            # 3. 二值化处理
-            _, img_binary = cv2.threshold(img_denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # 2. 高斯模糊去噪
+            img_blur = cv2.GaussianBlur(img_large, (3, 3), 0)
             
-            # 4. 形态学操作（可选）
-            kernel = np.ones((2,2), np.uint8)
-            img_processed = cv2.morphologyEx(img_binary, cv2.MORPH_CLOSE, kernel)
+            # 3. 自适应阈值二值化
+            img_adaptive = cv2.adaptiveThreshold(img_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            
+            # 4. 反转颜色（黑底白字更容易识别）
+            img_inverted = cv2.bitwise_not(img_adaptive)
+            
+            # 5. 形态学操作优化字符
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+            img_morph = cv2.morphologyEx(img_inverted, cv2.MORPH_CLOSE, kernel)
+            
+            # 6. 再次去噪
+            img_final = cv2.medianBlur(img_morph, 3)
             
             # 保存处理后的图像用于调试
             if self.debug_mode:
                 processed_path = f"debug_ocr_processed_{int(time.time())}.png"
-                cv2.imwrite(processed_path, img_processed)
+                cv2.imwrite(processed_path, img_final)
                 logger.info(f"OCR调试：已保存处理后图像到 {processed_path}")
             
-            # 使用多种OCR配置尝试识别
-            configs = [
-                r'--oem 3 --psm 6',  # 默认配置
-                r'--oem 3 --psm 8',  # 单词模式
-                r'--oem 3 --psm 7',  # 单行文本
-                r'--oem 3 --psm 13', # 原始行文本
-            ]
+            # 使用最优OCR配置
+            # PSM 6: 统一文本块，适合网页内容
+            # OEM 3: 默认引擎，最稳定
+            # 白名单：只识别英文字母、数字和常用标点
+            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?\'\"()-: '
             
-            best_text = ""
-            best_confidence = 0
-            
-            for config in configs:
-                try:
-                    # 尝试不同的图像（原图、处理后的图像）
-                    for img_to_process in [img_gray, img_processed]:
-                        text = pytesseract.image_to_string(img_to_process, config=config, lang='eng')
-                        if len(text.strip()) > len(best_text.strip()):
-                            best_text = text
-                except:
-                    continue
-            
-            text = best_text
+            # 使用处理后的高质量图像进行OCR
+            text = pytesseract.image_to_string(img_final, config=custom_config, lang='eng')
             
             # 转换为小写便于匹配
             text_lower = text.lower()
@@ -409,7 +402,7 @@ class CloudflareMonitor:
                     logger.info(f"🔄 OCR检测到图像验证对象: '{obj}' (说明是图像选择验证)")
                     return 'challenge'
             
-            # 智能检查：如果只有"imnotarobot"但没有其他挑战关键词，说明验证已通过
+            # 智能检查：如果只有"imnotarobot"但没有其他挑战关键词，需要谨慎判断
             text_clean = text_nospace.replace("'", "")
             if 'imnotarobot' in text_clean:
                 # 检查是否有其他挑战相关的关键词
@@ -436,7 +429,21 @@ class CloudflareMonitor:
                     logger.info("🔄 OCR检测到'I'm not a robot'验证界面（有挑战指示）")
                     return 'challenge'
                 else:
-                    # 检查是否仍在注册界面
+                    # 检查OCR识别质量：如果文字过于碎片化，可能是识别不完整
+                    # 统计有意义的单词数量
+                    meaningful_words = 0
+                    word_fragments = text_lower.split()
+                    
+                    for word in word_fragments:
+                        if len(word) >= 3 and word.isalpha():  # 至少3个字母的纯字母单词
+                            meaningful_words += 1
+                    
+                    # 如果有意义的单词太少，说明OCR识别不完整，保守判断为挑战进行中
+                    if meaningful_words < 10:
+                        logger.info(f"🔄 OCR识别质量较低（有意义单词数: {meaningful_words}），保守判断为验证进行中")
+                        return 'challenge'
+                    
+                    # OCR识别质量较好的情况下，检查是否在注册界面
                     registration_indicators = [
                         'create an account', 'createanaccount', 'sign up', 'signup',
                         'register', 'registration', 'welcome to'
