@@ -35,6 +35,12 @@ class CloudflareMonitor:
         self.template = cv2.imread(template_path, 0)
         if self.template is None:
             raise ValueError(f"无法加载模板图像: {template_path}")
+        
+        # 加载谷歌语音验证按钮模板
+        voice_template_path = str(image_dir / "voice_button.png")
+        self.voice_template = cv2.imread(voice_template_path, 0)
+        if self.voice_template is None:
+            raise ValueError(f"无法加载语音按钮模板图像: {voice_template_path}")
     
     def capture_screenshot(self):
         """捕获VNC屏幕截图"""
@@ -74,6 +80,31 @@ class CloudflareMonitor:
                 
         except Exception as e:
             logger.error(f"检测失败: {e}")
+            return False, None
+    
+    def detect_google_voice_button(self):
+        """检测谷歌语音验证按钮"""
+        try:
+            # 捕获屏幕截图
+            img = self.capture_screenshot()
+            img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            
+            # 模板匹配
+            result = cv2.matchTemplate(img_gray, self.voice_template, cv2.TM_CCOEFF_NORMED)
+            _, confidence, _, max_loc = cv2.minMaxLoc(result)
+            
+            if confidence >= self.threshold:
+                h, w = self.voice_template.shape
+                top_left = max_loc
+                bottom_right = (top_left[0] + w, top_left[1] + h)
+                bbox = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
+                logger.info(f"检测到谷歌语音验证按钮，置信度: {confidence:.3f}")
+                return True, bbox
+            else:
+                return False, None
+                
+        except Exception as e:
+            logger.error(f"谷歌语音按钮检测失败: {e}")
             return False, None
     
     def send_click(self, x, y):
@@ -116,6 +147,45 @@ class CloudflareMonitor:
         logger.info(f"计算点击位置: logo位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
         return click_x, click_y
     
+    def calculate_voice_button_click_position(self, bbox):
+        """计算谷歌语音按钮点击位置"""
+        x1, y1, x2, y2 = bbox
+        
+        # 点击位置：按钮中心
+        click_x = (x1 + x2) // 2
+        click_y = (y1 + y2) // 2
+        
+        logger.info(f"计算语音按钮点击位置: 按钮位置({x1},{y1})-({x2},{y2}) -> 点击位置({click_x},{click_y})")
+        return click_x, click_y
+    
+    def handle_google_voice_verification(self, timeout=30):
+        """处理谷歌语音验证，返回是否成功点击"""
+        logger.info("🔍 开始检测谷歌语音验证按钮...")
+        start_time = time.time()
+        
+        while (time.time() - start_time) < timeout:
+            detected, bbox = self.detect_google_voice_button()
+            
+            if detected:
+                logger.info("发现谷歌语音验证按钮！")
+                
+                # 计算点击位置
+                click_x, click_y = self.calculate_voice_button_click_position(bbox)
+                
+                # 发送点击命令
+                if self.send_click(click_x, click_y):
+                    logger.info("✅ 谷歌语音验证按钮点击成功！")
+                    return True
+                else:
+                    logger.error("❌ 语音按钮点击失败")
+                    return False
+            
+            # 等待一段时间再检测
+            time.sleep(2)
+        
+        logger.info(f"⏰ {timeout}秒内未检测到谷歌语音验证按钮")
+        return False
+    
     def run_forever(self, check_interval=3, verification_wait=5, exit_on_success=False):
         """
         持续监控模式
@@ -150,12 +220,19 @@ class CloudflareMonitor:
                         # 检查是否通过验证
                         still_detected, _ = self.detect_cloudflare()
                         if not still_detected:
-                            logger.info("✅ 人机验证通过成功！")
+                            logger.info("✅ Cloudflare人机验证通过成功！")
                             
-                            # 如果设置了验证通过后退出，则退出程序
-                            if exit_on_success:
-                                logger.info("👋 验证通过，程序退出")
+                            # Cloudflare验证通过后，检测谷歌语音验证按钮
+                            voice_success = self.handle_google_voice_verification(timeout=30)
+                            
+                            if voice_success:
+                                logger.info("🎉 所有验证完成，程序退出")
                                 return True
+                            else:
+                                # 如果设置了验证通过后退出，即使没有谷歌验证也退出
+                                if exit_on_success:
+                                    logger.info("👋 Cloudflare验证通过，程序退出")
+                                    return True
                         else:
                             logger.info("❌ 验证未通过，继续尝试...")
                     else:
