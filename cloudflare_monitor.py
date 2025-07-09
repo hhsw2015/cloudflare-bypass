@@ -27,7 +27,7 @@ class CloudflareMonitor:
         self.vnc_host = os.getenv("VNC_HOST", "127.0.0.1")
         self.vnc_port = 5900
         self.container_name = os.getenv("CONTAINER_NAME", "firefox2")
-        self.threshold = 0.35  # 匹配阈值（临时降低以测试120x120模板）
+        self.threshold = 0.32  # 匹配阈值（进一步降低以测试120x120模板）
         self.debug_mode = debug_mode
         
         # 加载Cloudflare logo模板
