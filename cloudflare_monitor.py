@@ -230,9 +230,20 @@ class CloudflareMonitor:
         """计算谷歌语音按钮点击位置"""
         x1, y1, x2, y2 = bbox
         
-        # 点击位置：按钮中心 + 偏移
+        # 智能判断点击位置：如果检测区域在屏幕上半部分，说明可能是误匹配，需要向下偏移
+        center_y = (y1 + y2) // 2
+        
+        # 假设屏幕高度约为900-1200像素，如果检测区域Y坐标小于600，很可能是误匹配到验证图片
+        if center_y < 600:
+            # 检测区域在上半部分，向下偏移到语音按钮区域
+            click_y = center_y + 160 + offset_y
+            logger.info(f"检测区域在屏幕上半部分 (Y={center_y})，自动向下偏移160像素")
+        else:
+            # 检测区域已经在下半部分，可能是正确的语音按钮位置
+            click_y = center_y + offset_y
+            logger.info(f"检测区域在屏幕下半部分 (Y={center_y})，使用原始位置")
+        
         click_x = (x1 + x2) // 2 + offset_x
-        click_y = (y1 + y2) // 2 + offset_y
         
         # 提供多个可选位置
         center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
@@ -242,13 +253,13 @@ class CloudflareMonitor:
         bottom_x, bottom_y = center_x, y2 - 10  # 下方偏移10像素
         
         logger.info(f"语音按钮检测区域: ({x1},{y1})-({x2},{y2})")
-        logger.info(f"可选点击位置:")
+        logger.info(f"检测区域可选位置:")
         logger.info(f"  中心: ({center_x},{center_y})")
         logger.info(f"  左侧: ({left_x},{left_y})")
         logger.info(f"  右侧: ({right_x},{right_y})")
         logger.info(f"  上方: ({top_x},{top_y})")
         logger.info(f"  下方: ({bottom_x},{bottom_y})")
-        logger.info(f"当前选择: ({click_x},{click_y})")
+        logger.info(f"最终点击位置: ({click_x},{click_y})")
         
         return click_x, click_y
     
