@@ -292,42 +292,52 @@ class CloudflareMonitor:
                 cv2.imwrite(debug_path, img_gray)
                 logger.info(f"OCR调试：已保存截图到 {debug_path}")
             
-            # 高质量图像预处理以提高OCR准确率
+            # 简单有效的图像预处理
+            # 1. 适度放大（1.5倍）
             height, width = img_gray.shape
-            
-            # 1. 大幅放大图像（3倍）提高分辨率
-            img_large = cv2.resize(img_gray, (width*3, height*3), interpolation=cv2.INTER_CUBIC)
-            
-            # 2. 高斯模糊去噪
-            img_blur = cv2.GaussianBlur(img_large, (3, 3), 0)
-            
-            # 3. 自适应阈值二值化
-            img_adaptive = cv2.adaptiveThreshold(img_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            
-            # 4. 反转颜色（黑底白字更容易识别）
-            img_inverted = cv2.bitwise_not(img_adaptive)
-            
-            # 5. 形态学操作优化字符
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-            img_morph = cv2.morphologyEx(img_inverted, cv2.MORPH_CLOSE, kernel)
-            
-            # 6. 再次去噪
-            img_final = cv2.medianBlur(img_morph, 3)
+            img_resized = cv2.resize(img_gray, (int(width*1.5), int(height*1.5)), interpolation=cv2.INTER_CUBIC)
             
             # 保存处理后的图像用于调试
             if self.debug_mode:
                 processed_path = f"debug_ocr_processed_{int(time.time())}.png"
-                cv2.imwrite(processed_path, img_final)
+                cv2.imwrite(processed_path, img_resized)
                 logger.info(f"OCR调试：已保存处理后图像到 {processed_path}")
             
-            # 使用最优OCR配置
-            # PSM 6: 统一文本块，适合网页内容
-            # OEM 3: 默认引擎，最稳定
-            # 白名单：只识别英文字母、数字和常用标点
-            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?\'\"()-: '
+            # 使用简单但有效的OCR配置
+            # 尝试多种PSM模式，选择识别效果最好的
+            configs_and_images = [
+                (r'--oem 3 --psm 6', img_gray),      # 原图 + 统一文本块
+                (r'--oem 3 --psm 6', img_resized),   # 放大图 + 统一文本块
+                (r'--oem 3 --psm 3', img_resized),   # 放大图 + 完全自动分页
+                (r'--oem 3 --psm 11', img_resized),  # 放大图 + 稀疏文本
+            ]
             
-            # 使用处理后的高质量图像进行OCR
-            text = pytesseract.image_to_string(img_final, config=custom_config, lang='eng')
+            best_text = ""
+            best_word_count = 0
+            
+            for config, img_to_use in configs_and_images:
+                try:
+                    text = pytesseract.image_to_string(img_to_use, config=config, lang='eng')
+                    # 统计有效单词数量（至少2个字符的字母单词）
+                    words = [word for word in text.split() if len(word) >= 2 and any(c.isalpha() for c in word)]
+                    word_count = len(words)
+                    
+                    if self.debug_mode:
+                        logger.info(f"配置 {config}: 识别出 {word_count} 个有效单词")
+                    
+                    if word_count > best_word_count:
+                        best_text = text
+                        best_word_count = word_count
+                        
+                except Exception as e:
+                    if self.debug_mode:
+                        logger.warning(f"OCR配置失败: {config} - {e}")
+                    continue
+            
+            text = best_text if best_text else ""
+            
+            if self.debug_mode:
+                logger.info(f"最佳OCR结果: {best_word_count} 个有效单词")
             
             # 转换为小写便于匹配
             text_lower = text.lower()
