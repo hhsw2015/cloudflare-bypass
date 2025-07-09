@@ -257,6 +257,19 @@ class CloudflareMonitor:
                     if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
                         if self.click_at_current_position():
                             logger.info("🎉 谷歌语音按钮点击成功！")
+                            
+                            # 等待几秒后点击失败后的语音按钮位置
+                            logger.info("等待3秒后点击失败后的语音按钮位置...")
+                            time.sleep(3)
+                            
+                            retry_x, retry_y = 845, 855
+                            logger.info(f"点击失败后的语音按钮位置: ({retry_x}, {retry_y})")
+                            if self.move_mouse_and_wait(retry_x, retry_y, wait_time=1):
+                                if self.click_at_current_position():
+                                    logger.info("✅ 失败后的语音按钮点击成功！")
+                                else:
+                                    logger.error("❌ 失败后的语音按钮点击失败")
+                            
                             return True
                         else:
                             logger.error("❌ 点击失败")
@@ -315,6 +328,19 @@ class CloudflareMonitor:
                                 if self.move_mouse_and_wait(click_x, click_y, wait_time=1):
                                     if self.click_at_current_position():
                                         logger.info("✅ 谷歌语音验证按钮点击成功！")
+                                        
+                                        # 等待几秒后点击失败后的语音按钮位置
+                                        logger.info("等待3秒后点击失败后的语音按钮位置...")
+                                        time.sleep(3)
+                                        
+                                        retry_x, retry_y = 845, 855
+                                        logger.info(f"点击失败后的语音按钮位置: ({retry_x}, {retry_y})")
+                                        if self.move_mouse_and_wait(retry_x, retry_y, wait_time=1):
+                                            if self.click_at_current_position():
+                                                logger.info("✅ 失败后的语音按钮点击成功！")
+                                            else:
+                                                logger.error("❌ 失败后的语音按钮点击失败")
+                                        
                                         if exit_on_success:
                                             logger.info("🎉 所有验证完成，程序退出")
                                             return True
