@@ -38,7 +38,7 @@ class CloudflareMonitor:
             raise ValueError(f"无法加载模板图像: {template_path}")
         
         # 加载谷歌语音验证按钮模板
-        voice_template_path = str(image_dir / "voice_button_48_48.png")
+        voice_template_path = str(image_dir / "voice_button_120_120.png")
         self.voice_template = cv2.imread(voice_template_path, 0)
         if self.voice_template is None:
             raise ValueError(f"无法加载语音按钮模板图像: {voice_template_path}")
