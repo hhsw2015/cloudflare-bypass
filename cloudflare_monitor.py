@@ -316,7 +316,8 @@ class CloudflareMonitor:
                 "challenge solved",
                 "captcha solved",
                 "passed",
-                "check you email",
+                "check your email",
+                "confirm your email",
             ]
 
             # Google reCAPTCHA 失败关键词
